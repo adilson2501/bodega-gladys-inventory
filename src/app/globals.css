@@ -17,3 +17,20 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+.form-input {
+  min-height: 3rem;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0 1rem;
+  color: #0f172a;
+  font-size: 1rem;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 4px #d1fae5;
+}

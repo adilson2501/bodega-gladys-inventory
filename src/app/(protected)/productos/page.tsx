@@ -1,18 +1,47 @@
-export default function ProductsPage() {
-  return (
-    <PlaceholderPage
-      title="Productos"
-      description="El registro de productos se implementará en el siguiente paso."
-    />
-  );
-}
+import { connection } from "next/server";
+import { asc, ilike, or } from "drizzle-orm";
 
-function PlaceholderPage({ title, description }: { title: string; description: string }) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
-      <p className="text-sm font-medium text-emerald-700">Sección</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
-    </section>
-  );
+import { db } from "@/db";
+import { products } from "@/db/schema";
+
+import {
+  ProductsClient,
+  type ProductListItem,
+} from "@/components/products/products-client";
+
+export const instant = false;
+
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  await connection();
+
+  const query = ((await searchParams).q ?? "").trim();
+  const searchPattern = `%${query}%`;
+  const conditions = query
+    ? or(
+        ilike(products.name, searchPattern),
+        ilike(products.category, searchPattern),
+        ilike(products.barcode, searchPattern),
+      )
+    : undefined;
+
+  const productRows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      category: products.category,
+      barcode: products.barcode,
+      currentStock: products.currentStock,
+      minimumStock: products.minimumStock,
+    })
+    .from(products)
+    .where(conditions)
+    .orderBy(asc(products.name));
+
+  const productList: ProductListItem[] = productRows;
+
+  return <ProductsClient products={productList} searchQuery={query} />;
 }
