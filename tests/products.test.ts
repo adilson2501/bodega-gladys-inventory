@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getStockStatus } from "../src/lib/inventory/stock-status";
+import { getInventorySummary } from "../src/lib/inventory/inventory-summary";
 import { productInputSchema } from "../src/lib/validations/product";
 
 describe("stock status", () => {
@@ -15,6 +16,18 @@ describe("stock status", () => {
 
   it("marks stock above the minimum as NORMAL", () => {
     expect(getStockStatus(5, 4)).toBe("NORMAL");
+  });
+});
+
+describe("inventory summary", () => {
+  it("counts each product in exactly one stock state", () => {
+    expect(
+      getInventorySummary([
+        { currentStock: 0, minimumStock: 4 },
+        { currentStock: 3, minimumStock: 4 },
+        { currentStock: 10, minimumStock: 4 },
+      ]),
+    ).toEqual({ total: 3, agotados: 1, stockBajo: 1, normal: 1 });
   });
 });
 

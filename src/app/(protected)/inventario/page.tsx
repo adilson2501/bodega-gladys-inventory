@@ -1,11 +1,28 @@
-export default function InventoryPage() {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
-      <p className="text-sm font-medium text-emerald-700">Sección</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Inventario</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        La consulta de existencias se implementará más adelante.
-      </p>
-    </section>
-  );
+import { connection } from "next/server";
+import { asc } from "drizzle-orm";
+
+import { InventoryClient, type InventoryListItem } from "@/components/inventory/inventory-client";
+import { db } from "@/db";
+import { products } from "@/db/schema";
+import { getInventorySummary } from "@/lib/inventory/inventory-summary";
+
+export const instant = false;
+
+export default async function InventoryPage() {
+  await connection();
+
+  const productRows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      category: products.category,
+      currentStock: products.currentStock,
+      minimumStock: products.minimumStock,
+    })
+    .from(products)
+    .orderBy(asc(products.name));
+
+  const productList: InventoryListItem[] = productRows;
+
+  return <InventoryClient products={productList} summary={getInventorySummary(productList)} />;
 }
