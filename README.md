@@ -46,3 +46,9 @@ npm run db:migrate
 ```
 
 Never commit `.env.local` or any credential.
+
+## Authentication limitation
+
+The application intentionally exposes no public registration UI. Neon Auth is
+currently beta and does not yet support fully restricted service-level sign-ups;
+this is a known MVP technical limitation.
