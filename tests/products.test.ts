@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getStockStatus } from "../src/lib/inventory/stock-status";
 import { getInventorySummary } from "../src/lib/inventory/inventory-summary";
+import { hasAuthenticatedUser } from "../src/lib/auth/route-guard";
 import {
   calculateResultingStock,
   movementInputSchema,
@@ -68,6 +69,26 @@ describe("movement rules", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it.each(["0", "-1", "1.5"])("rejects quantity %s in the movement input", (quantity) => {
+    const result = movementInputSchema.safeParse({
+      productId: "550e8400-e29b-41d4-a716-446655440000",
+      type: "IN",
+      quantity,
+      reason: "PURCHASE",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("protected route guard", () => {
+  it("recognizes only sessions with a user", () => {
+    expect(hasAuthenticatedUser({ user: { id: "user-1" } })).toBe(true);
+    expect(hasAuthenticatedUser({ user: null })).toBe(false);
+    expect(hasAuthenticatedUser(null)).toBe(false);
+    expect(hasAuthenticatedUser(undefined)).toBe(false);
+  });
 });
 
 describe("product validation", () => {
@@ -86,6 +107,12 @@ describe("product validation", () => {
 
   it("rejects a negative minimum stock", () => {
     const result = productInputSchema.safeParse({ ...validProduct, minimumStock: "-1" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a decimal minimum stock", () => {
+    const result = productInputSchema.safeParse({ ...validProduct, minimumStock: "1.5" });
 
     expect(result.success).toBe(false);
   });

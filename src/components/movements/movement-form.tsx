@@ -94,7 +94,7 @@ export function MovementForm({ products }: { products: MovementProduct[] }) {
             {movementTypes.map((type) => (
               <label
                 key={type}
-                className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold ${
+                className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold transition focus-within:ring-4 focus-within:ring-emerald-200 focus-within:ring-offset-2 ${
                   movementType === type
                     ? "border-emerald-600 bg-emerald-50 text-emerald-800"
                     : "border-slate-300 text-slate-700"

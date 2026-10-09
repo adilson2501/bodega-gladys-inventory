@@ -1,6 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -29,10 +35,12 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
   const [notice, setNotice] = useState("");
+  const dialogOpenerRef = useRef<HTMLElement | null>(null);
 
   function closeForm() {
     setIsCreating(false);
     setEditingProduct(null);
+    dialogOpenerRef.current?.focus();
   }
 
   function handleSaved(message: string) {
@@ -56,6 +64,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           type="button"
           onClick={() => {
             setNotice("");
+            dialogOpenerRef.current = document.activeElement as HTMLElement | null;
             setIsCreating(true);
           }}
           className="min-h-12 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200"
@@ -96,8 +105,9 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
             <ProductCard
               key={product.id}
               product={product}
-              onEdit={() => {
+              onEdit={(opener) => {
                 setNotice("");
+                dialogOpenerRef.current = opener;
                 setEditingProduct(product);
               }}
             />
@@ -119,7 +129,13 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   );
 }
 
-function ProductCard({ product, onEdit }: { product: ProductListItem; onEdit: () => void }) {
+function ProductCard({
+  product,
+  onEdit,
+}: {
+  product: ProductListItem;
+  onEdit: (opener: HTMLButtonElement) => void;
+}) {
   const status = getStockStatus(product.currentStock, product.minimumStock);
 
   return (
@@ -144,7 +160,7 @@ function ProductCard({ product, onEdit }: { product: ProductListItem; onEdit: ()
 
       <button
         type="button"
-        onClick={onEdit}
+        onClick={(event) => onEdit(event.currentTarget)}
         className="mt-4 min-h-11 w-full rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
       >
         Editar producto
@@ -222,9 +238,15 @@ function ProductForm({
   onCancel: () => void;
   onSaved: (message: string) => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const action = product ? updateProduct : createProduct;
   const [state, formAction, isPending] = useActionState<ProductActionState, FormData>(action, null);
+
+  useEffect(() => {
+    firstFieldRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (state?.success) {
@@ -233,12 +255,46 @@ function ProductForm({
     }
   }, [onSaved, router, state]);
 
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusableElements = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter((element) => {
+      if (element instanceof HTMLInputElement && element.type === "hidden") return false;
+      return !element.hasAttribute("disabled");
+    });
+
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-slate-950/40 sm:items-center sm:p-5">
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-form-title"
+        onKeyDown={handleDialogKeyDown}
         className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl sm:p-8"
       >
         <div className="flex items-start justify-between gap-4">
@@ -267,6 +323,7 @@ function ProductForm({
           <FormField label="Nombre" htmlFor="product-name" required>
             <input
               id="product-name"
+              ref={firstFieldRef}
               name="name"
               type="text"
               defaultValue={product?.name ?? ""}

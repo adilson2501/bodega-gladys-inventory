@@ -1,10 +1,21 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { signOut } from "@/actions/auth";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { getAuth } from "@/lib/auth/server";
+import { hasAuthenticatedUser } from "@/lib/auth/route-guard";
 
-export default function ProtectedLayout({ children }: { children: ReactNode }) {
+export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+  await connection();
+  const { data: session } = await getAuth().getSession();
+
+  if (!hasAuthenticatedUser(session)) {
+    redirect("/auth/sign-in");
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white">

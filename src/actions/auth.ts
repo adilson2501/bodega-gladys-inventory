@@ -23,10 +23,15 @@ export async function signIn(
     return { error: "Ingresa tu contraseña." };
   }
 
-  const { error } = await getAuth().signIn.email({
-    email: email.trim(),
-    password,
-  });
+  let error;
+  try {
+    ({ error } = await getAuth().signIn.email({
+      email: email.trim(),
+      password,
+    }));
+  } catch {
+    return { error: "No se pudo iniciar sesión. Inténtalo nuevamente." };
+  }
 
   if (error) {
     return { error: "El correo o la contraseña no son correctos." };
@@ -36,6 +41,11 @@ export async function signIn(
 }
 
 export async function signOut() {
-  await getAuth().signOut();
+  try {
+    await getAuth().signOut();
+  } catch {
+    redirect("/auth/sign-in");
+  }
+
   redirect("/auth/sign-in");
 }
