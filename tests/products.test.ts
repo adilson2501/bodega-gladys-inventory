@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { getStockStatus } from "../src/lib/inventory/stock-status";
 import { getInventorySummary } from "../src/lib/inventory/inventory-summary";
+import {
+  calculateResultingStock,
+  movementInputSchema,
+} from "../src/lib/inventory/movement-rules";
 import { productInputSchema } from "../src/lib/validations/product";
 
 describe("stock status", () => {
@@ -28,6 +32,41 @@ describe("inventory summary", () => {
         { currentStock: 10, minimumStock: 4 },
       ]),
     ).toEqual({ total: 3, agotados: 1, stockBajo: 1, normal: 1 });
+  });
+});
+
+describe("movement rules", () => {
+  it("calculates an entry", () => {
+    expect(calculateResultingStock(0, "IN", 10)).toBe(10);
+  });
+
+  it("calculates an exit", () => {
+    expect(calculateResultingStock(10, "OUT", 7)).toBe(3);
+  });
+
+  it("rejects an exit above available stock", () => {
+    expect(() => calculateResultingStock(3, "OUT", 5)).toThrow(
+      "No hay stock suficiente. Stock disponible: 3.",
+    );
+  });
+
+  it("allows stock to reach zero", () => {
+    expect(calculateResultingStock(5, "OUT", 5)).toBe(0);
+  });
+
+  it.each([0, -1, 1.5])("rejects invalid quantity %s", (quantity) => {
+    expect(() => calculateResultingStock(5, "IN", quantity)).toThrow();
+  });
+
+  it("validates movement enums and reasons", () => {
+    const result = movementInputSchema.safeParse({
+      productId: "not-a-uuid",
+      type: "INVALID",
+      quantity: "2.5",
+      reason: "INVALID",
+    });
+
+    expect(result.success).toBe(false);
   });
 });
 

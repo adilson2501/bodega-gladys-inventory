@@ -1,11 +1,21 @@
-export default function MovementPage() {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
-      <p className="text-sm font-medium text-emerald-700">Sección</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Movimiento</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        El registro de entradas y salidas se implementará más adelante.
-      </p>
-    </section>
-  );
+import { connection } from "next/server";
+import { asc } from "drizzle-orm";
+
+import { MovementForm, type MovementProduct } from "@/components/movements/movement-form";
+import { db } from "@/db";
+import { products } from "@/db/schema";
+
+export const instant = false;
+
+export default async function MovementPage() {
+  await connection();
+
+  const productRows = await db
+    .select({ id: products.id, name: products.name, currentStock: products.currentStock })
+    .from(products)
+    .orderBy(asc(products.name));
+
+  const productList: MovementProduct[] = productRows;
+
+  return <MovementForm products={productList} />;
 }
