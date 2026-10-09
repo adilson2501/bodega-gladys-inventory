@@ -34,12 +34,6 @@ export async function signIn(
   }
 
   if (error) {
-    console.warn("[auth] Sign-in provider error", {
-      operation: "sign-in",
-      code: error.code,
-      status: error.status,
-      statusText: error.statusText,
-    });
     return { error: "El correo o la contraseña no son correctos." };
   }
 
