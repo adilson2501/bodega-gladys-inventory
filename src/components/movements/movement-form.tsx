@@ -18,9 +18,18 @@ export type MovementProduct = {
   currentStock: number;
 };
 
-export function MovementForm({ products }: { products: MovementProduct[] }) {
+export function MovementForm({
+  products,
+  initialProductId,
+}: {
+  products: MovementProduct[];
+  initialProductId?: string;
+}) {
   const router = useRouter();
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id ?? "");
+  const initialProduct = products.find((product) => product.id === initialProductId);
+  const [selectedProductId, setSelectedProductId] = useState(
+    initialProduct?.id ?? products[0]?.id ?? "",
+  );
   const [movementType, setMovementType] = useState<(typeof movementTypes)[number]>("IN");
   const [quantity, setQuantity] = useState("");
   const [state, formAction, isPending] = useActionState<MovementActionState, FormData>(
