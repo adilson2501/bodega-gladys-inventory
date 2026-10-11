@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
+  --background: #f4f7f5;
   --foreground: #0f172a;
 }
 
@@ -16,21 +16,40 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 3px;
 }
 
 .form-input {
-  min-height: 3rem;
+  min-height: 3.5rem;
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 0.75rem;
   background: white;
   padding: 0 1rem;
   color: #0f172a;
-  font-size: 1rem;
+  font-size: 1.125rem;
   outline: none;
 }
 
 .form-input:focus {
   border-color: #059669;
   box-shadow: 0 0 0 4px #d1fae5;
+}
+
+.form-input::placeholder {
+  color: #64748b;
+  opacity: 1;
 }
