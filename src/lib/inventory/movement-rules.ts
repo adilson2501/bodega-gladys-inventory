@@ -16,6 +16,17 @@ export const movementInputSchema = z.object({
   reason: z.enum(movementReasons, { message: "Selecciona un motivo válido." }),
 });
 
+export const stockAdjustmentInputSchema = z.object({
+  productId: z.uuid("Selecciona un producto válido."),
+  actualStock: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce
+      .number({ message: "El stock real debe ser un número." })
+      .int("El stock real debe ser un número entero.")
+      .nonnegative("El stock real no puede ser negativo."),
+  ),
+});
+
 export type MovementType = (typeof movementTypes)[number];
 export type MovementReason = (typeof movementReasons)[number];
 export type MovementInput = z.output<typeof movementInputSchema>;
@@ -40,6 +51,22 @@ export function calculateResultingStock(
   }
 
   return previousStock - quantity;
+}
+
+export function calculateStockAdjustment(previousStock: number, actualStock: number) {
+  if (!Number.isInteger(actualStock) || actualStock < 0) {
+    throw new MovementRuleError("El stock real debe ser un número entero igual o mayor que cero.");
+  }
+
+  if (actualStock === previousStock) {
+    throw new MovementRuleError("El stock real ya coincide con el stock registrado.");
+  }
+
+  return {
+    type: actualStock > previousStock ? "IN" : "OUT",
+    quantity: Math.abs(actualStock - previousStock),
+    resultingStock: actualStock,
+  } satisfies { type: MovementType; quantity: number; resultingStock: number };
 }
 
 export const movementTypeLabels: Record<MovementType, string> = {

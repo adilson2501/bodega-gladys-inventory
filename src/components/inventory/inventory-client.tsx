@@ -210,17 +210,25 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
           <p className="mt-1 text-2xl font-bold text-slate-800">{product.minimumStock}</p>
         </div>
       </div>
-      {requiresRestock ? (
-        <div className="mt-4 rounded-xl bg-amber-50 p-4">
-          <p className="text-base font-semibold text-amber-950">{restockMessage}</p>
-          <Link
-            href={`/movimiento?product=${encodeURIComponent(product.id)}`}
-            className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800"
-          >
-            Registrar una entrada
-          </Link>
-        </div>
-      ) : null}
+      <div className="mt-4 space-y-3">
+        {requiresRestock ? (
+          <div className="rounded-xl bg-amber-50 p-4">
+            <p className="text-base font-semibold text-amber-950">{restockMessage}</p>
+            <Link
+              href={`/movimiento?product=${encodeURIComponent(product.id)}`}
+              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800"
+            >
+              Registrar una entrada
+            </Link>
+          </div>
+        ) : null}
+        <Link
+          href={`/ajustar?product=${encodeURIComponent(product.id)}`}
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-50"
+        >
+          Ajustar stock contado
+        </Link>
+      </div>
     </article>
   );
 }
