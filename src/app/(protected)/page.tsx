@@ -40,7 +40,7 @@ export default async function HomePage() {
       .from(inventoryMovements)
       .innerJoin(products, eq(inventoryMovements.productId, products.id))
       .orderBy(desc(inventoryMovements.createdAt))
-      .limit(5),
+      .limit(3),
   ]);
 
   const summary = getInventorySummary(productRows);
@@ -55,13 +55,32 @@ export default async function HomePage() {
   return (
     <div className="space-y-6">
       <section>
-        <p className="text-sm font-medium text-emerald-700">Inicio</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Resumen de inventario
+        <p className="text-base font-semibold text-emerald-800">Inicio</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+          ¿Qué deseas hacer?
         </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Lo más importante de tu bodega, en un solo lugar.
+        <p className="mt-2 text-base leading-7 text-slate-700">
+          Elige una opción para continuar con tu bodega.
         </p>
+      </section>
+
+      <section aria-label="Acciones principales" className="grid gap-3 sm:grid-cols-3">
+        <QuickAction
+          href="/movimiento"
+          label="Registrar entrada o salida"
+          description="Actualiza el stock de un producto"
+          primary
+        />
+        <QuickAction
+          href="/inventario"
+          label="Revisar existencias"
+          description="Mira qué productos faltan"
+        />
+        <QuickAction
+          href="/productos"
+          label="Ver productos"
+          description="Agrega o edita productos"
+        />
       </section>
 
       <section aria-label="Resumen de inventario" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -88,12 +107,12 @@ export default async function HomePage() {
       <section className="space-y-3" aria-labelledby="attention-title">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-amber-700">Seguimiento</p>
-            <h2 id="attention-title" className="mt-1 text-xl font-semibold text-slate-950">
-              Requieren atención
+            <p className="text-base font-semibold text-amber-800">Atención</p>
+            <h2 id="attention-title" className="mt-1 text-2xl font-bold text-slate-950">
+              Productos por revisar
             </h2>
           </div>
-          <Link href="/inventario" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+          <Link href="/inventario" className="text-base font-bold text-emerald-800 hover:text-emerald-950">
             Ver inventario
           </Link>
         </div>
@@ -105,8 +124,8 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-5 text-sm text-emerald-800">
-            El inventario no tiene alertas de stock.
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-5 text-base text-emerald-900">
+            Todo está en orden. No hay productos con poco stock.
           </div>
         )}
       </section>
@@ -114,12 +133,12 @@ export default async function HomePage() {
       <section className="space-y-3" aria-labelledby="recent-movements-title">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-slate-500">Actividad</p>
-            <h2 id="recent-movements-title" className="mt-1 text-xl font-semibold text-slate-950">
-              Movimientos recientes
+            <p className="text-base font-semibold text-slate-600">Actividad reciente</p>
+            <h2 id="recent-movements-title" className="mt-1 text-2xl font-bold text-slate-950">
+              Últimos movimientos
             </h2>
           </div>
-          <Link href="/historial" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+          <Link href="/historial" className="text-base font-bold text-emerald-800 hover:text-emerald-950">
             Ver historial
           </Link>
         </div>
@@ -131,17 +150,12 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-sm text-slate-600">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-base text-slate-700">
             Aún no hay movimientos registrados.
           </div>
         )}
       </section>
 
-      <section aria-label="Acciones rápidas" className="grid gap-3 sm:grid-cols-3">
-        <QuickAction href="/movimiento" label="Registrar movimiento" primary />
-        <QuickAction href="/inventario" label="Ver inventario" />
-        <QuickAction href="/productos" label="Productos" />
-      </section>
     </div>
   );
 }
@@ -163,8 +177,8 @@ function SummaryCard({
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <p className="text-xs leading-5 text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${valueStyles[tone]}`}>{value}</p>
+      <p className="text-sm leading-5 text-slate-600">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${valueStyles[tone]}`}>{value}</p>
     </article>
   );
 }
@@ -235,17 +249,30 @@ function RecentMovementCard({
   );
 }
 
-function QuickAction({ href, label, primary = false }: { href: string; label: string; primary?: boolean }) {
+function QuickAction({
+  href,
+  label,
+  description,
+  primary = false,
+}: {
+  href: string;
+  label: string;
+  description: string;
+  primary?: boolean;
+}) {
   return (
     <Link
       href={href}
-      className={`flex min-h-12 items-center justify-center rounded-xl px-4 text-center text-sm font-semibold transition ${
+      className={`flex min-h-24 flex-col items-start justify-center rounded-2xl px-5 text-left transition focus:outline-none ${
         primary
-          ? "bg-emerald-700 text-white hover:bg-emerald-800"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+          ? "bg-emerald-700 text-white shadow-sm hover:bg-emerald-800"
+          : "border border-slate-300 bg-white text-slate-900 shadow-sm hover:bg-slate-50"
       }`}
     >
-      {label}
+      <span className="text-lg font-bold">{label}</span>
+      <span className={`mt-1 text-sm ${primary ? "text-emerald-50" : "text-slate-600"}`}>
+        {description}
+      </span>
     </Link>
   );
 }
