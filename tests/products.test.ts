@@ -4,6 +4,12 @@ import { getStockStatus } from "../src/lib/inventory/stock-status";
 import { getInventorySummary } from "../src/lib/inventory/inventory-summary";
 import { hasAuthenticatedUser } from "../src/lib/auth/route-guard";
 import {
+  bootstrapAdminSchema,
+  canBootstrapAdmin,
+  hasValidBootstrapToken,
+  isPublicSignUpPath,
+} from "../src/lib/auth/bootstrap-rules";
+import {
   calculateResultingStock,
   movementInputSchema,
 } from "../src/lib/inventory/movement-rules";
@@ -133,5 +139,43 @@ describe("product validation", () => {
       expect(result.data.barcode).toBeNull();
       expect("currentStock" in result.data).toBe(false);
     }
+  });
+});
+
+describe("admin bootstrap", () => {
+  const validInput = {
+    name: "Gladys",
+    email: "gladys@example.com",
+    password: "una-clave-segura",
+    passwordConfirmation: "una-clave-segura",
+    setupToken: "token-de-instalacion-seguro",
+  };
+
+  it("allows setup only when no auth users exist", () => {
+    expect(canBootstrapAdmin(0)).toBe(true);
+    expect(canBootstrapAdmin(1)).toBe(false);
+  });
+
+  it("validates the administrator credentials", () => {
+    expect(bootstrapAdminSchema.safeParse(validInput).success).toBe(true);
+    expect(
+      bootstrapAdminSchema.safeParse({
+        ...validInput,
+        passwordConfirmation: "otra-clave-segura",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("compares installation tokens without accepting a missing configuration", () => {
+    const token = "un-token-de-instalacion-de-al-menos-32-caracteres";
+
+    expect(hasValidBootstrapToken(token, token)).toBe(true);
+    expect(hasValidBootstrapToken("incorrecto", token)).toBe(false);
+    expect(hasValidBootstrapToken(token, undefined)).toBe(false);
+  });
+
+  it("recognizes and blocks the public email sign-up endpoint", () => {
+    expect(isPublicSignUpPath(["sign-up", "email"])).toBe(true);
+    expect(isPublicSignUpPath(["sign-in", "email"])).toBe(false);
   });
 });
