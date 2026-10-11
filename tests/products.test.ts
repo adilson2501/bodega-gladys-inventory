@@ -10,8 +10,10 @@ import {
   isPublicSignUpPath,
 } from "../src/lib/auth/bootstrap-rules";
 import {
+  calculateStockAdjustment,
   calculateResultingStock,
   movementInputSchema,
+  stockAdjustmentInputSchema,
 } from "../src/lib/inventory/movement-rules";
 import { productInputSchema } from "../src/lib/validations/product";
 
@@ -82,6 +84,24 @@ describe("movement rules", () => {
       type: "IN",
       quantity,
       reason: "PURCHASE",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("calculates an adjustment as an entry or exit", () => {
+    expect(calculateStockAdjustment(4, 9)).toEqual({ type: "IN", quantity: 5, resultingStock: 9 });
+    expect(calculateStockAdjustment(9, 4)).toEqual({ type: "OUT", quantity: 5, resultingStock: 4 });
+  });
+
+  it("rejects an adjustment when the counted stock matches the registered stock", () => {
+    expect(() => calculateStockAdjustment(4, 4)).toThrow("El stock real ya coincide con el stock registrado.");
+  });
+
+  it.each(["-1", "1.5", ""])("rejects invalid actual stock %s", (actualStock) => {
+    const result = stockAdjustmentInputSchema.safeParse({
+      productId: "550e8400-e29b-41d4-a716-446655440000",
+      actualStock,
     });
 
     expect(result.success).toBe(false);

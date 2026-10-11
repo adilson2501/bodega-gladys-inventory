@@ -7,9 +7,11 @@ import { db } from "@/db";
 import { inventoryMovements, products } from "@/db/schema";
 import { getAuth } from "@/lib/auth/server";
 import {
+  calculateStockAdjustment,
   calculateResultingStock,
   movementInputSchema,
   MovementRuleError,
+  stockAdjustmentInputSchema,
 } from "@/lib/inventory/movement-rules";
 
 export type MovementActionState = {
@@ -88,6 +90,7 @@ export async function createMovement(
     });
 
     revalidatePath("/movimiento");
+    revalidatePath("/");
     revalidatePath("/inventario");
     revalidatePath("/productos");
     revalidatePath("/historial");
@@ -98,5 +101,69 @@ export async function createMovement(
     }
 
     return { error: "No se pudo registrar el movimiento. Inténtalo nuevamente." };
+  }
+}
+
+export async function adjustStock(
+  _previousState: MovementActionState,
+  formData: FormData,
+): Promise<MovementActionState> {
+  const { data: session } = await getAuth().getSession();
+  if (!session?.user) {
+    return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  }
+
+  const result = stockAdjustmentInputSchema.safeParse({
+    productId: getFormValue(formData, "productId"),
+    actualStock: getFormValue(formData, "actualStock"),
+  });
+
+  if (!result.success) {
+    return { error: getValidationError(result.error) };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const productRows = await tx
+        .select({ id: products.id, currentStock: products.currentStock })
+        .from(products)
+        .where(eq(products.id, result.data.productId))
+        .for("update");
+
+      const product = productRows[0];
+      if (!product) {
+        throw new MovementRuleError("No se encontró el producto seleccionado.");
+      }
+
+      const adjustment = calculateStockAdjustment(product.currentStock, result.data.actualStock);
+
+      await tx
+        .update(products)
+        .set({ currentStock: adjustment.resultingStock, updatedAt: new Date() })
+        .where(eq(products.id, product.id));
+
+      await tx.insert(inventoryMovements).values({
+        productId: product.id,
+        type: adjustment.type,
+        reason: "ADJUSTMENT",
+        quantity: adjustment.quantity,
+        previousStock: product.currentStock,
+        resultingStock: adjustment.resultingStock,
+      });
+    });
+
+    revalidatePath("/");
+    revalidatePath("/movimiento");
+    revalidatePath("/inventario");
+    revalidatePath("/productos");
+    revalidatePath("/historial");
+    revalidatePath("/ajustar");
+    return { success: "Stock ajustado correctamente. El ajuste quedó registrado en el historial." };
+  } catch (error) {
+    if (error instanceof MovementRuleError) {
+      return { error: error.message };
+    }
+
+    return { error: "No se pudo ajustar el stock. Inténtalo nuevamente." };
   }
 }
