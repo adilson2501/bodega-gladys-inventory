@@ -17,6 +17,12 @@ export type BootstrapActionState = {
   error?: string;
 } | null;
 
+function sanitizeAuthMessage(message: unknown) {
+  return String(message ?? "Unknown authentication error")
+    .replace(/[\r\n]+/g, " ")
+    .slice(0, 300);
+}
+
 export async function signIn(
   _previousState: SignInState,
   formData: FormData,
@@ -38,11 +44,28 @@ export async function signIn(
       email: email.trim(),
       password,
     }));
-  } catch {
+  } catch (caughtError) {
+    console.error({
+      timestamp: new Date().toISOString(),
+      source: "neon-auth-sign-in",
+      kind: "thrown-exception",
+      errorClass: caughtError instanceof Error ? caughtError.constructor.name : "Unknown",
+      errorName: caughtError instanceof Error ? caughtError.name : "Unknown",
+      message: sanitizeAuthMessage(caughtError instanceof Error ? caughtError.message : undefined),
+    });
     return { error: "No se pudo iniciar sesión. Inténtalo nuevamente." };
   }
 
   if (error) {
+    console.error({
+      timestamp: new Date().toISOString(),
+      source: "neon-auth-sign-in",
+      kind: "returned-error",
+      sdkCode: error.code,
+      status: error.status,
+      statusText: error.statusText,
+      message: sanitizeAuthMessage(error.message),
+    });
     return { error: "El correo o la contraseña no son correctos." };
   }
 
