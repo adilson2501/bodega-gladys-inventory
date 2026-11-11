@@ -4,7 +4,6 @@ import { connection } from "next/server";
 
 import { db } from "@/db";
 import { inventoryMovements, products } from "@/db/schema";
-import { getInventorySummary } from "@/lib/inventory/inventory-summary";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
 import {
   movementReasonLabels,
@@ -40,10 +39,9 @@ export default async function HomePage() {
       .from(inventoryMovements)
       .innerJoin(products, eq(inventoryMovements.productId, products.id))
       .orderBy(desc(inventoryMovements.createdAt))
-      .limit(5),
+      .limit(3),
   ]);
 
-  const summary = getInventorySummary(productRows);
   const attentionProducts = productRows
     .map((product) => ({ ...product, status: getStockStatus(product.currentStock, product.minimumStock) }))
     .filter((product) => product.status !== "NORMAL")
@@ -51,77 +49,75 @@ export default async function HomePage() {
       if (first.status === second.status) return first.name.localeCompare(second.name);
       return first.status === "AGOTADO" ? -1 : 1;
     });
+  const priorityProduct = attentionProducts[0];
+  const visibleAttentionProducts = attentionProducts.slice(0, 3);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <section>
-        <p className="text-sm font-medium text-emerald-700">Inicio</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Resumen de inventario
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Lo más importante de tu bodega, en un solo lugar.
+        <p className="text-base font-semibold text-emerald-800">Inicio</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">¿Qué necesitas hacer ahora?</h1>
+        <p className="mt-2 text-base leading-7 text-slate-700">
+          Aquí verás primero lo más importante para tu bodega.
         </p>
       </section>
 
-      <section aria-label="Resumen de inventario" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <SummaryCard label="Total de productos" value={summary.total} />
-        <SummaryCard label="Stock bajo" value={summary.stockBajo} tone="warning" />
-        <SummaryCard label="Agotados" value={summary.agotados} tone="danger" />
-      </section>
-
       {productRows.length === 0 ? (
-        <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
-          <h2 className="text-lg font-semibold text-slate-950">No hay productos registrados.</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Registra tu primer producto para comenzar a controlar tu inventario.
-          </p>
-          <Link
-            href="/productos"
-            className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800"
-          >
-            Ir a Productos
-          </Link>
-        </section>
-      ) : null}
+        <SetupCard />
+      ) : (
+        <DailyPriorityCard priorityProduct={priorityProduct} attentionCount={attentionProducts.length} />
+      )}
 
-      <section className="space-y-3" aria-labelledby="attention-title">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-amber-700">Seguimiento</p>
-            <h2 id="attention-title" className="mt-1 text-xl font-semibold text-slate-950">
-              Requieren atención
-            </h2>
+      {visibleAttentionProducts.length > 0 ? (
+        <section className="space-y-3" aria-labelledby="attention-title">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-base font-semibold text-amber-800">Para revisar</p>
+              <h2 id="attention-title" className="mt-1 text-2xl font-bold text-slate-950">
+                Productos por reponer
+              </h2>
+            </div>
+            <Link href="/inventario" className="text-base font-bold text-emerald-800 hover:text-emerald-950">
+              Ver todos
+            </Link>
           </div>
-          <Link href="/inventario" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            Ver inventario
-          </Link>
-        </div>
 
-        {attentionProducts.length > 0 ? (
           <div className="space-y-3">
-            {attentionProducts.map((product) => (
+            {visibleAttentionProducts.map((product) => (
               <AttentionCard key={product.id} product={product} />
             ))}
           </div>
-        ) : (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-5 text-sm text-emerald-800">
-            El inventario no tiene alertas de stock.
-          </div>
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {productRows.length > 0 ? (
+        <section aria-label="Acciones principales" className="grid gap-3 sm:grid-cols-2">
+          <QuickAction
+            href="/inventario"
+            label="Revisar existencias"
+            description="Mira todos los productos y su stock"
+          />
+          <QuickAction
+            href="/productos"
+            label="Ver productos"
+            description="Agrega o edita productos"
+          />
+        </section>
+      ) : null}
 
       <section className="space-y-3" aria-labelledby="recent-movements-title">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-slate-500">Actividad</p>
-            <h2 id="recent-movements-title" className="mt-1 text-xl font-semibold text-slate-950">
-              Movimientos recientes
+            <p className="text-base font-semibold text-slate-700">Actividad reciente</p>
+            <h2 id="recent-movements-title" className="mt-1 text-2xl font-bold text-slate-950">
+              Últimos movimientos
             </h2>
           </div>
-          <Link href="/historial" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            Ver historial
-          </Link>
+          {movementRows.length > 0 ? (
+            <Link href="/historial" className="text-base font-bold text-emerald-800 hover:text-emerald-950">
+              Ver historial
+            </Link>
+          ) : null}
         </div>
 
         {movementRows.length > 0 ? (
@@ -131,41 +127,78 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-sm text-slate-600">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-base text-slate-700">
             Aún no hay movimientos registrados.
           </div>
         )}
-      </section>
-
-      <section aria-label="Acciones rápidas" className="grid gap-3 sm:grid-cols-3">
-        <QuickAction href="/movimiento" label="Registrar movimiento" primary />
-        <QuickAction href="/inventario" label="Ver inventario" />
-        <QuickAction href="/productos" label="Productos" />
       </section>
     </div>
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  tone = "default",
+function SetupCard() {
+  return (
+    <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
+      <p className="text-lg font-bold">Comencemos agregando un producto.</p>
+      <p className="mt-2 text-base leading-6">
+        Cuando registres tus productos podrás controlar sus entradas, salidas y existencias.
+      </p>
+      <Link
+        href="/productos"
+        className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 sm:w-auto"
+      >
+        Agregar producto
+      </Link>
+    </section>
+  );
+}
+
+function DailyPriorityCard({
+  priorityProduct,
+  attentionCount,
 }: {
-  label: string;
-  value: number;
-  tone?: "default" | "warning" | "danger";
+  priorityProduct: {
+    id: string;
+    name: string;
+    currentStock: number;
+    status: StockStatus;
+  } | undefined;
+  attentionCount: number;
 }) {
-  const valueStyles = {
-    default: "text-slate-950",
-    warning: "text-amber-700",
-    danger: "text-red-700",
-  };
+  if (!priorityProduct) {
+    return (
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
+        <p className="text-lg font-bold">Todo está en orden.</p>
+        <p className="mt-2 text-base leading-6">Por ahora no hay productos que necesiten reposición.</p>
+        <Link
+          href="/movimiento"
+          className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 sm:w-auto"
+        >
+          Registrar entrada o salida
+        </Link>
+      </section>
+    );
+  }
+
+  const isOutOfStock = priorityProduct.status === "AGOTADO";
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <p className="text-xs leading-5 text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${valueStyles[tone]}`}>{value}</p>
-    </article>
+    <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
+      <p className="text-lg font-bold">
+        Hoy debes reponer {attentionCount} producto{attentionCount === 1 ? "" : "s"}.
+      </p>
+      <p className="mt-2 text-base leading-6">
+        {isOutOfStock
+          ? `${priorityProduct.name} está agotado.`
+          : `${priorityProduct.name} tiene solo ${priorityProduct.currentStock} unidades.`}
+      </p>
+      <Link
+        href={`/movimiento?product=${encodeURIComponent(priorityProduct.id)}`}
+        className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-800 px-5 text-base font-bold text-white hover:bg-amber-900 sm:w-auto"
+      >
+        Registrar entrada
+      </Link>
+    </section>
   );
 }
 
@@ -173,34 +206,45 @@ function AttentionCard({
   product,
 }: {
   product: {
+    id: string;
     name: string;
     currentStock: number;
     minimumStock: number;
     status: StockStatus;
   };
 }) {
+  const isOutOfStock = product.status === "AGOTADO";
+
   return (
-    <article className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="min-w-0">
-        <h3 className="truncate font-semibold text-slate-950">{product.name}</h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Actual: <strong className="text-slate-800">{product.currentStock}</strong> · Mínimo: {product.minimumStock}
-        </p>
+    <article className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-xl font-bold text-slate-950">{product.name}</h3>
+          <p className="mt-1 text-base text-slate-700">
+            Stock actual: <strong>{product.currentStock}</strong> · Mínimo: {product.minimumStock}
+          </p>
+        </div>
+        <StatusBadge status={product.status} />
       </div>
-      <StatusBadge status={product.status} />
+      <Link
+        href={`/movimiento?product=${encodeURIComponent(product.id)}`}
+        className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-emerald-700 px-4 text-base font-bold text-emerald-900 hover:bg-emerald-50"
+      >
+        {isOutOfStock ? "Registrar entrada" : "Reponer producto"}
+      </Link>
     </article>
   );
 }
 
 function StatusBadge({ status }: { status: StockStatus }) {
   const styles = {
-    AGOTADO: "bg-red-50 text-red-700",
-    "STOCK BAJO": "bg-amber-50 text-amber-800",
-    NORMAL: "bg-emerald-50 text-emerald-800",
+    AGOTADO: "bg-red-50 text-red-800",
+    "STOCK BAJO": "bg-amber-50 text-amber-900",
+    NORMAL: "bg-emerald-50 text-emerald-900",
   } satisfies Record<StockStatus, string>;
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}>
+    <span className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold ${styles[status]}`}>
       {status}
     </span>
   );
@@ -219,33 +263,45 @@ function RecentMovementCard({
 }) {
   const type = movement.type as MovementType;
   const reason = movement.reason as MovementReason;
+  const isEntry = type === "IN";
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className={`text-sm font-semibold ${type === "IN" ? "text-emerald-700" : "text-red-700"}`}>
-        {movementTypeLabels[type]} · {movement.productName}
-      </p>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <p className="text-lg font-bold text-slate-950">
-          {type === "IN" ? "+" : "-"}{movement.quantity} · {movementReasonLabels[reason]}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`text-base font-bold ${isEntry ? "text-emerald-800" : "text-amber-900"}`}>
+            {movementTypeLabels[type]}
+          </p>
+          <h3 className="mt-1 truncate text-lg font-bold text-slate-950">{movement.productName}</h3>
+        </div>
+        <p className="shrink-0 text-xl font-bold text-slate-950">
+          {isEntry ? "+" : "-"}{movement.quantity}
         </p>
-        <p className="shrink-0 text-xs text-slate-500">{formatDate(movement.createdAt)}</p>
+      </div>
+      <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm text-slate-600">
+        <p>{movementReasonLabels[reason]}</p>
+        <p>{formatDate(movement.createdAt)}</p>
       </div>
     </article>
   );
 }
 
-function QuickAction({ href, label, primary = false }: { href: string; label: string; primary?: boolean }) {
+function QuickAction({
+  href,
+  label,
+  description,
+}: {
+  href: string;
+  label: string;
+  description: string;
+}) {
   return (
     <Link
       href={href}
-      className={`flex min-h-12 items-center justify-center rounded-xl px-4 text-center text-sm font-semibold transition ${
-        primary
-          ? "bg-emerald-700 text-white hover:bg-emerald-800"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      }`}
+      className="flex min-h-24 flex-col items-start justify-center rounded-2xl border border-slate-300 bg-white px-5 text-left text-slate-900 shadow-sm transition hover:bg-slate-50"
     >
-      {label}
+      <span className="text-lg font-bold">{label}</span>
+      <span className="mt-1 text-sm text-slate-600">{description}</span>
     </Link>
   );
 }

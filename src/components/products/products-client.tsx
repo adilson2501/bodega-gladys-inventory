@@ -52,12 +52,12 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
     <div className="space-y-6">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-emerald-700">Catálogo</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+          <p className="text-base font-semibold text-emerald-800">Productos</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             Productos
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Registra los productos que tienes en tu bodega.
+          <p className="mt-2 text-base leading-7 text-slate-700">
+            Busca un producto o agrega uno nuevo cuando lo necesites.
           </p>
         </div>
         <button
@@ -67,19 +67,19 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
             dialogOpenerRef.current = document.activeElement as HTMLElement | null;
             setIsCreating(true);
           }}
-          className="min-h-12 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+          className="min-h-14 w-full rounded-xl bg-emerald-700 px-5 text-base font-bold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200 sm:w-auto"
         >
-          Nuevo producto
+          + Agregar producto
         </button>
       </section>
 
       {notice ? (
-        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-base text-emerald-900">
           {notice}
         </p>
       ) : null}
 
-      <form method="get" className="flex gap-2">
+      <form method="get" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         <label htmlFor="product-search" className="sr-only">
           Buscar productos
         </label>
@@ -88,12 +88,12 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           name="q"
           type="search"
           defaultValue={searchQuery}
-          placeholder="Buscar por nombre, categoría o código"
-          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          placeholder="Buscar por nombre o categoría"
+          className="min-h-14 min-w-0 w-full rounded-xl border border-slate-300 bg-white px-4 text-lg text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
         <button
           type="submit"
-          className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="mt-3 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-800 hover:bg-slate-50"
         >
           Buscar
         </button>
@@ -142,18 +142,18 @@ function ProductCard({
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold text-slate-950">{product.name}</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="truncate text-xl font-bold text-slate-950">{product.name}</h2>
+          <p className="mt-1 text-base text-slate-600">
             {product.category || "Sin categoría"}
           </p>
           {product.barcode ? (
-            <p className="mt-1 text-xs text-slate-400">Código: {product.barcode}</p>
+            <p className="mt-2 text-sm text-slate-500">Código: {product.barcode}</p>
           ) : null}
         </div>
         <StatusBadge status={status} />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3">
+      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
         <StockValue label="Stock actual" value={product.currentStock} />
         <StockValue label="Stock mínimo" value={product.minimumStock} />
       </div>
@@ -161,9 +161,9 @@ function ProductCard({
       <button
         type="button"
         onClick={(event) => onEdit(event.currentTarget)}
-        className="mt-4 min-h-11 w-full rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
+        className="mt-4 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
       >
-        Editar producto
+        Ver o editar producto
       </button>
     </article>
   );
@@ -172,8 +172,8 @@ function ProductCard({
 function StockValue({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-slate-950">{value}</p>
+      <p className="text-sm text-slate-600">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
     </div>
   );
 }
@@ -186,7 +186,7 @@ function StatusBadge({ status }: { status: StockStatus }) {
   } satisfies Record<StockStatus, string>;
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}>
+    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${styles[status]}`}>
       {status}
     </span>
   );
@@ -204,7 +204,7 @@ function EmptyProductsState({
       <h2 className="text-lg font-semibold text-slate-950">
         {hasSearch ? "No encontramos productos" : "No hay productos registrados."}
       </h2>
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-base text-slate-700">
         {hasSearch
           ? "Prueba con otro nombre, categoría o código."
           : "Registra tu primer producto para comenzar."}
@@ -213,14 +213,14 @@ function EmptyProductsState({
         <button
           type="button"
           onClick={onCreate}
-          className="mt-5 min-h-11 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800"
+          className="mt-5 min-h-12 rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800"
         >
           Registrar primer producto
         </button>
       ) : (
         <Link
           href="/productos"
-          className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="mt-5 inline-flex min-h-12 items-center rounded-xl border border-slate-300 px-5 text-base font-bold text-slate-800 hover:bg-slate-50"
         >
           Ver todos los productos
         </Link>
@@ -299,22 +299,22 @@ function ProductForm({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-emerald-700">Productos</p>
-            <h2 id="product-form-title" className="mt-2 text-2xl font-semibold text-slate-950">
-              {product ? "Editar producto" : "Nuevo producto"}
+            <p className="text-base font-semibold text-emerald-800">Productos</p>
+            <h2 id="product-form-title" className="mt-2 text-2xl font-bold text-slate-950">
+              {product ? "Editar producto" : "Agregar producto"}
             </h2>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-10 rounded-lg px-3 text-sm text-slate-500 hover:bg-slate-100"
+            className="min-h-11 rounded-xl px-3 text-base font-semibold text-slate-700 hover:bg-slate-100"
           >
             Cerrar
           </button>
         </div>
 
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          El stock actual comienza en cero y se modificará después desde los movimientos.
+        <p className="mt-3 text-base leading-7 text-slate-700">
+          Completa el nombre y el stock mínimo. Lo demás es opcional. El stock actual se actualiza al registrar una entrada o salida.
         </p>
 
         <form action={formAction} className="mt-6 space-y-5">
@@ -366,7 +366,7 @@ function ProductForm({
           </FormField>
 
           {state?.error ? (
-            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-800">
               {state.error}
             </p>
           ) : null}
@@ -375,14 +375,14 @@ function ProductForm({
             <button
               type="button"
               onClick={onCancel}
-              className="min-h-12 rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="min-h-12 rounded-xl border border-slate-300 px-5 text-base font-bold text-slate-800 hover:bg-slate-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="min-h-12 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-12 rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? "Guardando..." : "Guardar"}
             </button>
@@ -406,7 +406,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium text-slate-800">
+      <label htmlFor={htmlFor} className="mb-2 block text-base font-semibold text-slate-900">
         {label} {required ? <span aria-hidden="true">*</span> : null}
       </label>
       {children}

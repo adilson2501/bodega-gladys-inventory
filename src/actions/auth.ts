@@ -3,8 +3,17 @@
 import { redirect } from "next/navigation";
 
 import { getAuth } from "@/lib/auth/server";
+import { isBootstrapAvailable } from "@/lib/auth/bootstrap";
+import {
+  bootstrapAdminSchema,
+  hasValidBootstrapToken,
+} from "@/lib/auth/bootstrap-rules";
 
 export type SignInState = {
+  error?: string;
+} | null;
+
+export type BootstrapActionState = {
   error?: string;
 } | null;
 
@@ -35,6 +44,47 @@ export async function signIn(
 
   if (error) {
     return { error: "El correo o la contraseña no son correctos." };
+  }
+
+  redirect("/");
+}
+
+export async function bootstrapAdmin(
+  _previousState: BootstrapActionState,
+  formData: FormData,
+): Promise<BootstrapActionState> {
+  const result = bootstrapAdminSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    passwordConfirmation: formData.get("passwordConfirmation"),
+    setupToken: formData.get("setupToken"),
+  });
+
+  if (!result.success) {
+    return { error: result.error.issues[0]?.message ?? "Revisa los datos ingresados." };
+  }
+
+  if (!hasValidBootstrapToken(result.data.setupToken, process.env.BOOTSTRAP_ADMIN_TOKEN)) {
+    return { error: "El token de instalación no es válido." };
+  }
+
+  if (!(await isBootstrapAvailable())) {
+    return { error: "El acceso inicial ya fue creado. Inicia sesión." };
+  }
+
+  try {
+    const { error } = await getAuth().signUp.email({
+      name: result.data.name,
+      email: result.data.email,
+      password: result.data.password,
+    });
+
+    if (error) {
+      return { error: "No se pudo crear el acceso. Verifica los datos e inténtalo nuevamente." };
+    }
+  } catch {
+    return { error: "No se pudo crear el acceso. Inténtalo nuevamente." };
   }
 
   redirect("/");

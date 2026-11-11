@@ -7,8 +7,13 @@ import { products } from "@/db/schema";
 
 export const instant = false;
 
-export default async function MovementPage() {
+export default async function MovementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ product?: string | string[] }>;
+}) {
   await connection();
+  const { product } = await searchParams;
 
   const productRows = await db
     .select({ id: products.id, name: products.name, currentStock: products.currentStock })
@@ -17,5 +22,5 @@ export default async function MovementPage() {
 
   const productList: MovementProduct[] = productRows;
 
-  return <MovementForm products={productList} />;
+  return <MovementForm products={productList} initialProductId={typeof product === "string" ? product : undefined} />;
 }
