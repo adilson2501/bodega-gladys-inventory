@@ -16,6 +16,7 @@ import {
   type ProductActionState,
 } from "@/actions/products";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
+import { unitLabels, unitOfMeasureValues } from "@/lib/validations/commercial";
 
 export type ProductListItem = {
   id: string;
@@ -24,6 +25,10 @@ export type ProductListItem = {
   barcode: string | null;
   currentStock: number;
   minimumStock: number;
+  sellingPrice: string;
+  purchaseCost: string;
+  unitOfMeasure: (typeof unitOfMeasureValues)[number];
+  isActive: boolean;
 };
 
 type ProductsClientProps = {
@@ -146,6 +151,9 @@ function ProductCard({
           <p className="mt-1 text-base text-slate-600">
             {product.category || "Sin categoría"}
           </p>
+          <p className="mt-2 text-sm text-slate-700">
+            Venta: <strong>S/ {product.sellingPrice}</strong> · {unitLabels[product.unitOfMeasure]}
+          </p>
           {product.barcode ? (
             <p className="mt-2 text-sm text-slate-500">Código: {product.barcode}</p>
           ) : null}
@@ -157,6 +165,9 @@ function ProductCard({
         <StockValue label="Stock actual" value={product.currentStock} />
         <StockValue label="Stock mínimo" value={product.minimumStock} />
       </div>
+      <p className={`mt-3 text-sm font-bold ${product.isActive ? "text-emerald-700" : "text-slate-500"}`}>
+        {product.isActive ? "Producto activo" : "Producto inactivo"}
+      </p>
 
       <button
         type="button"
@@ -352,6 +363,21 @@ function ProductForm({
             />
           </FormField>
 
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField label="Precio de venta (S/)" htmlFor="product-selling-price" required>
+              <input id="product-selling-price" name="sellingPrice" type="number" min="0" step="0.01" defaultValue={product?.sellingPrice ?? "0.00"} required className="form-input" />
+            </FormField>
+            <FormField label="Costo de compra (S/)" htmlFor="product-purchase-cost" required>
+              <input id="product-purchase-cost" name="purchaseCost" type="number" min="0" step="0.01" defaultValue={product?.purchaseCost ?? "0.00"} required className="form-input" />
+            </FormField>
+          </div>
+
+          <FormField label="Unidad de medida" htmlFor="product-unit">
+            <select id="product-unit" name="unitOfMeasure" defaultValue={product?.unitOfMeasure ?? "UNIT"} className="form-input">
+              {unitOfMeasureValues.map((unit) => <option key={unit} value={unit}>{unitLabels[unit]}</option>)}
+            </select>
+          </FormField>
+
           <FormField label="Stock mínimo" htmlFor="product-minimum-stock" required>
             <input
               id="product-minimum-stock"
@@ -364,6 +390,11 @@ function ProductForm({
               className="form-input"
             />
           </FormField>
+
+          <label className="flex items-center gap-3 text-base font-semibold text-slate-900">
+            <input type="checkbox" name="isActive" value="true" defaultChecked={product?.isActive ?? true} className="h-5 w-5 accent-emerald-700" />
+            Disponible para ventas y compras
+          </label>
 
           {state?.error ? (
             <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-800">

@@ -5,11 +5,13 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createMovement, type MovementActionState } from "@/actions/movements";
+import { useIdempotencyKey } from "@/lib/inventory/use-idempotency-key";
 import {
   movementReasonLabels,
   movementReasons,
   movementTypeLabels,
   movementTypes,
+  validReasonsByType,
 } from "@/lib/inventory/movement-rules";
 
 export type MovementProduct = {
@@ -32,6 +34,8 @@ export function MovementForm({
   );
   const [movementType, setMovementType] = useState<(typeof movementTypes)[number]>("IN");
   const [quantity, setQuantity] = useState("");
+  const [reason, setReason] = useState<(typeof movementReasons)[number]>("PURCHASE");
+  const { inputRef: idempotencyInputRef, ensureKey, rotateKey } = useIdempotencyKey();
   const [state, formAction, isPending] = useActionState<MovementActionState, FormData>(
     createMovement,
     null,
@@ -51,7 +55,10 @@ export function MovementForm({
     if (state?.success) {
       router.refresh();
     }
+    if (state?.staleStock !== undefined) router.refresh();
   }, [router, state]);
+
+  const validReasons = validReasonsByType[movementType];
 
   if (products.length === 0) {
     return (
@@ -88,7 +95,11 @@ export function MovementForm({
         </p>
       ) : null}
 
-      <form action={formAction} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <form
+        action={formAction}
+        onSubmit={ensureKey}
+        className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      >
         <FormStep number="1" title="Elige el producto">
           <label htmlFor="movement-product" className="mb-2 block text-base font-semibold text-slate-900">
             Producto <span aria-hidden="true">*</span>
@@ -97,7 +108,10 @@ export function MovementForm({
             id="movement-product"
             name="productId"
             value={selectedProductId}
-            onChange={(event) => setSelectedProductId(event.target.value)}
+            onChange={(event) => {
+              setSelectedProductId(event.target.value);
+              rotateKey();
+            }}
             className="form-input"
             required
           >
@@ -134,7 +148,11 @@ export function MovementForm({
                     name="type"
                     value={type}
                     checked={isSelected}
-                    onChange={() => setMovementType(type)}
+                    onChange={() => {
+                      setMovementType(type);
+                      setReason(validReasonsByType[type][0]);
+                      rotateKey();
+                    }}
                     className="sr-only"
                   />
                   <span className="text-lg font-bold">{movementTypeLabels[type]}</span>
@@ -159,7 +177,10 @@ export function MovementForm({
                 step="1"
                 inputMode="numeric"
                 value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
+                onChange={(event) => {
+                  setQuantity(event.target.value);
+                  rotateKey();
+                }}
                 required
                 className="form-input"
               />
@@ -169,8 +190,18 @@ export function MovementForm({
               <label htmlFor="movement-reason" className="mb-2 block text-base font-semibold text-slate-900">
                 Motivo <span aria-hidden="true">*</span>
               </label>
-              <select id="movement-reason" name="reason" defaultValue="PURCHASE" className="form-input" required>
-                {movementReasons.map((reason) => (
+              <select
+                id="movement-reason"
+                name="reason"
+                value={reason}
+                onChange={(event) => {
+                  setReason(event.target.value as (typeof movementReasons)[number]);
+                  rotateKey();
+                }}
+                className="form-input"
+                required
+              >
+                {validReasons.map((reason) => (
                   <option key={reason} value={reason}>
                     {movementReasonLabels[reason]}
                   </option>
@@ -179,6 +210,9 @@ export function MovementForm({
             </div>
           </div>
         </FormStep>
+
+        <input ref={idempotencyInputRef} type="hidden" name="idempotencyKey" defaultValue="" />
+        <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? 0} />
 
         {resultingStock !== null ? (
           <section

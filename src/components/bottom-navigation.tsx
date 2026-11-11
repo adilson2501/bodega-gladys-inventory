@@ -6,9 +6,12 @@ import { usePathname } from "next/navigation";
 const navigationItems = [
   { href: "/", label: "Inicio", icon: "home" },
   { href: "/productos", label: "Productos", icon: "products" },
+  { href: "/ventas", label: "Ventas", icon: "sales" },
+  { href: "/compras", label: "Compras", icon: "purchases" },
   { href: "/movimiento", label: "Registrar", icon: "movement", primary: true },
   { href: "/inventario", label: "Stock", icon: "inventory" },
   { href: "/historial", label: "Historial", icon: "history" },
+  { href: "/predicciones", label: "Predicción", icon: "forecast" },
 ] as const;
 
 export function BottomNavigation() {
@@ -19,7 +22,7 @@ export function BottomNavigation() {
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:px-5"
     >
-      <div className="mx-auto grid max-w-5xl grid-cols-5 gap-1">
+      <div className="mx-auto grid max-w-5xl grid-cols-4 gap-1 sm:grid-cols-8">
         {navigationItems.map((item) => {
           const isActive =
             item.href === "/"
@@ -88,6 +91,14 @@ function NavigationIcon({ name }: { name: (typeof navigationItems)[number]["icon
     );
   }
 
+  if (name === "sales" || name === "purchases") {
+    return (
+      <svg {...commonProps}>
+        <path d={name === "sales" ? "M4 6h16v14H4zM8 10h8M8 14h5" : "M4 7h16v13H4zM7 4h10v3H7zM8 11h8M8 15h5"} />
+      </svg>
+    );
+  }
+
   if (name === "inventory") {
     return (
       <svg {...commonProps}>
@@ -95,6 +106,10 @@ function NavigationIcon({ name }: { name: (typeof navigationItems)[number]["icon
         <path d="m4 7.5 8 4.5 8-4.5M12 12v9" />
       </svg>
     );
+  }
+
+  if (name === "forecast") {
+    return <svg {...commonProps}><path d="M4 19V5M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></svg>;
   }
 
   return (

@@ -8,6 +8,20 @@
       "when": 1791568134631,
       "tag": "0000_volatile_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794414917927,
+      "tag": "0001_sparkling_falcon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794420639607,
+      "tag": "0002_mysterious_peter_parker",
+      "breakpoints": true
     }
   ]
 }

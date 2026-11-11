@@ -50,6 +50,10 @@ export async function createProduct(
     category: getFormValue(formData, "category"),
     barcode: getFormValue(formData, "barcode"),
     minimumStock: getFormValue(formData, "minimumStock"),
+    sellingPrice: getFormValue(formData, "sellingPrice") || "0",
+    purchaseCost: getFormValue(formData, "purchaseCost") || "0",
+    unitOfMeasure: getFormValue(formData, "unitOfMeasure") || "UNIT",
+    isActive: formData.has("isActive"),
   });
 
   if (!result.success) {
@@ -62,6 +66,10 @@ export async function createProduct(
       category: result.data.category,
       barcode: result.data.barcode,
       minimumStock: result.data.minimumStock,
+      sellingPrice: result.data.sellingPrice,
+      purchaseCost: result.data.purchaseCost,
+      unitOfMeasure: result.data.unitOfMeasure,
+      isActive: result.data.isActive,
       currentStock: 0,
     });
 
@@ -86,6 +94,10 @@ export async function updateProduct(
     category: getFormValue(formData, "category"),
     barcode: getFormValue(formData, "barcode"),
     minimumStock: getFormValue(formData, "minimumStock"),
+    sellingPrice: getFormValue(formData, "sellingPrice") || "0",
+    purchaseCost: getFormValue(formData, "purchaseCost") || "0",
+    unitOfMeasure: getFormValue(formData, "unitOfMeasure") || "UNIT",
+    isActive: formData.has("isActive"),
   });
 
   if (!productId.success || !result.success) {
@@ -104,6 +116,10 @@ export async function updateProduct(
         category: result.data.category,
         barcode: result.data.barcode,
         minimumStock: result.data.minimumStock,
+        sellingPrice: result.data.sellingPrice,
+        purchaseCost: result.data.purchaseCost,
+        unitOfMeasure: result.data.unitOfMeasure,
+        isActive: result.data.isActive,
         updatedAt: new Date(),
       })
       .where(eq(products.id, productId.data))

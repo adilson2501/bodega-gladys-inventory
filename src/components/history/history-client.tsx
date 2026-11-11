@@ -19,6 +19,8 @@ export type HistoryMovement = {
   previousStock: number;
   resultingStock: number;
   createdAt: string;
+  actorEmail: string | null;
+  source: "Venta" | "Compra" | "Manual";
 };
 
 type HistoryFilter = "TODOS" | "HOY" | "SEMANA" | "ENTRADAS" | "SALIDAS";
@@ -140,7 +142,8 @@ function MovementCard({ movement }: { movement: HistoryMovement }) {
           </span>
         </p>
       </div>
-      <p className="mt-4 text-sm font-medium text-slate-600">{formatDate(movement.createdAt)}</p>
+        <p className="mt-4 text-sm font-medium text-slate-600">{formatDate(movement.createdAt)}</p>
+      <p className="mt-1 text-sm text-slate-500">Origen: {movement.source} · Responsable: {movement.actorEmail ?? "Histórico sin responsable"}</p>
     </article>
   );
 }

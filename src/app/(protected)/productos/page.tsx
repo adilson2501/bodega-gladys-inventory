@@ -33,7 +33,11 @@ export default async function ProductsPage({
       id: products.id,
       name: products.name,
       category: products.category,
-      barcode: products.barcode,
+       barcode: products.barcode,
+       sellingPrice: products.sellingPrice,
+       purchaseCost: products.purchaseCost,
+       unitOfMeasure: products.unitOfMeasure,
+       isActive: products.isActive,
       currentStock: products.currentStock,
       minimumStock: products.minimumStock,
     })

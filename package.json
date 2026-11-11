@@ -4,13 +4,23 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:staging": "node scripts/dev-staging.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:verify:staging": "node scripts/verify-staging-db.mjs",
+    "db:reset:staging": "node scripts/reset-staging-commercial-data.mjs",
+    "db:migrate:staging": "node scripts/migrate-staging-db.mjs",
+    "db:inspect:staging": "node scripts/inspect-staging-db.mjs",
+    "db:migrate:staging:direct": "node scripts/migrate-staging-direct.mjs",
+    "db:migrate:staging:preflight": "node scripts/migrate-staging-direct.mjs --dry-run",
+    "db:test:staging": "node scripts/test-staging-integration.mjs",
+    "test:integration:resolution": "node scripts/check-integration-import.mjs",
+    "ml:test": "pytest ml/tests"
   },
   "dependencies": {
     "@neondatabase/auth": "^0.5.0-beta",

@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { adjustStock, type MovementActionState } from "@/actions/movements";
+import { useIdempotencyKey } from "@/lib/inventory/use-idempotency-key";
 
 export type AdjustmentProduct = {
   id: string;
@@ -26,6 +27,7 @@ export function StockAdjustmentForm({
   );
   const [actualStock, setActualStock] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const { inputRef: idempotencyInputRef, ensureKey, rotateKey } = useIdempotencyKey();
   const [state, formAction, isPending] = useActionState<MovementActionState, FormData>(adjustStock, null);
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const numericActualStock = Number(actualStock);
@@ -41,6 +43,7 @@ export function StockAdjustmentForm({
     if (state?.success) {
       router.refresh();
     }
+    if (state?.staleStock !== undefined) router.refresh();
   }, [router, state]);
 
   if (products.length === 0) {
@@ -76,7 +79,11 @@ export function StockAdjustmentForm({
         </p>
       ) : null}
 
-      <form action={formAction} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <form
+        action={formAction}
+        onSubmit={ensureKey}
+        className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      >
         <section className="border-b border-slate-200 pb-6">
           <label htmlFor="adjustment-product" className="mb-2 block text-base font-semibold text-slate-900">
             Producto <span aria-hidden="true">*</span>
@@ -89,6 +96,7 @@ export function StockAdjustmentForm({
               setSelectedProductId(event.target.value);
               setActualStock("");
               setIsConfirmed(false);
+              rotateKey();
             }}
             className="form-input"
           >
@@ -120,6 +128,7 @@ export function StockAdjustmentForm({
             onChange={(event) => {
               setActualStock(event.target.value);
               setIsConfirmed(false);
+              rotateKey();
             }}
             required
             className="form-input"
@@ -128,6 +137,9 @@ export function StockAdjustmentForm({
             Escribe la cantidad física que acabas de contar, incluso si es cero.
           </p>
         </section>
+
+        <input ref={idempotencyInputRef} type="hidden" name="idempotencyKey" defaultValue="" />
+        <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? 0} />
 
         {difference !== null ? (
           <section

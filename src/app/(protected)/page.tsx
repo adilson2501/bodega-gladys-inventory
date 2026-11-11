@@ -91,7 +91,7 @@ export default async function HomePage() {
       ) : null}
 
       {productRows.length > 0 ? (
-        <section aria-label="Acciones principales" className="grid gap-3 sm:grid-cols-2">
+          <section aria-label="Acciones principales" className="grid gap-3 sm:grid-cols-2">
           <QuickAction
             href="/inventario"
             label="Revisar existencias"
@@ -102,6 +102,8 @@ export default async function HomePage() {
             label="Ver productos"
             description="Agrega o edita productos"
           />
+          <QuickAction href="/ventas" label="Registrar venta" description="Vende varios productos y cobra" />
+          <QuickAction href="/compras" label="Registrar compra" description="Abastece stock con proveedor" />
         </section>
       ) : null}
 

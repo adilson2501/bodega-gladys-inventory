@@ -3,6 +3,11 @@ import { z } from "zod";
 export const movementTypes = ["IN", "OUT"] as const;
 export const movementReasons = ["PURCHASE", "SALE", "ADJUSTMENT", "WASTE", "OTHER"] as const;
 
+export const validReasonsByType = {
+  IN: ["PURCHASE", "ADJUSTMENT", "OTHER"],
+  OUT: ["SALE", "ADJUSTMENT", "WASTE", "OTHER"],
+} as const satisfies Record<MovementType, readonly MovementReason[]>;
+
 export const movementInputSchema = z.object({
   productId: z.uuid("Selecciona un producto válido."),
   type: z.enum(movementTypes, { message: "Selecciona un tipo de movimiento válido." }),
@@ -14,6 +19,16 @@ export const movementInputSchema = z.object({
       .positive("La cantidad debe ser mayor que cero."),
   ),
   reason: z.enum(movementReasons, { message: "Selecciona un motivo válido." }),
+  idempotencyKey: z.uuid("La clave de idempotencia no es válida."),
+  expectedStock: z.coerce.number().int().nonnegative(),
+}).superRefine((input, context) => {
+  if (!validateMovementCombination(input.type, input.reason)) {
+    context.addIssue({
+      code: "custom",
+      path: ["reason"],
+      message: "El motivo no es válido para el tipo de movimiento seleccionado.",
+    });
+  }
 });
 
 export const stockAdjustmentInputSchema = z.object({
@@ -25,11 +40,17 @@ export const stockAdjustmentInputSchema = z.object({
       .int("El stock real debe ser un número entero.")
       .nonnegative("El stock real no puede ser negativo."),
   ),
+  idempotencyKey: z.uuid("La clave de idempotencia no es válida."),
+  expectedStock: z.coerce.number().int().nonnegative(),
 });
 
 export type MovementType = (typeof movementTypes)[number];
 export type MovementReason = (typeof movementReasons)[number];
 export type MovementInput = z.output<typeof movementInputSchema>;
+
+export function validateMovementCombination(type: MovementType, reason: MovementReason) {
+  return validReasonsByType[type].some((allowedReason) => allowedReason === reason);
+}
 
 export class MovementRuleError extends Error {}
 

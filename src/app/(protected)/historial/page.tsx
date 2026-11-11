@@ -19,7 +19,10 @@ export default async function HistoryPage() {
       reason: inventoryMovements.reason,
       quantity: inventoryMovements.quantity,
       previousStock: inventoryMovements.previousStock,
-      resultingStock: inventoryMovements.resultingStock,
+       resultingStock: inventoryMovements.resultingStock,
+       actorEmail: inventoryMovements.actorEmail,
+       saleId: inventoryMovements.saleId,
+       purchaseId: inventoryMovements.purchaseId,
       createdAt: inventoryMovements.createdAt,
     })
     .from(inventoryMovements)
@@ -31,6 +34,8 @@ export default async function HistoryPage() {
     type: movement.type as MovementType,
     reason: movement.reason as MovementReason,
     createdAt: movement.createdAt.toISOString(),
+    actorEmail: movement.actorEmail,
+    source: movement.saleId ? "Venta" : movement.purchaseId ? "Compra" : "Manual",
   }));
 
   return <HistoryClient movements={movements} />;

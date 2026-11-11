@@ -14,7 +14,10 @@ import {
   calculateResultingStock,
   movementInputSchema,
   stockAdjustmentInputSchema,
+  validateMovementCombination,
 } from "../src/lib/inventory/movement-rules";
+import { createRequestFingerprint } from "../src/lib/inventory/idempotency";
+import { createIdempotencyKeyLifecycle } from "../src/lib/inventory/idempotency-key-lifecycle";
 import { productInputSchema } from "../src/lib/validations/product";
 
 describe("stock status", () => {
@@ -89,6 +92,46 @@ describe("movement rules", () => {
     expect(result.success).toBe(false);
   });
 
+  it.each([
+    ["IN", "PURCHASE"],
+    ["IN", "ADJUSTMENT"],
+    ["IN", "OTHER"],
+    ["OUT", "SALE"],
+    ["OUT", "ADJUSTMENT"],
+    ["OUT", "WASTE"],
+    ["OUT", "OTHER"],
+  ] as const)("accepts %s/%s", (type, reason) => {
+    expect(validateMovementCombination(type, reason)).toBe(true);
+    expect(
+      movementInputSchema.safeParse({
+        productId: "550e8400-e29b-41d4-a716-446655440000",
+        type,
+        quantity: "2",
+        reason,
+        idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+        expectedStock: "4",
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["IN", "SALE"],
+    ["IN", "WASTE"],
+    ["OUT", "PURCHASE"],
+  ] as const)("rejects %s/%s", (type, reason) => {
+    expect(validateMovementCombination(type, reason)).toBe(false);
+    expect(
+      movementInputSchema.safeParse({
+        productId: "550e8400-e29b-41d4-a716-446655440000",
+        type,
+        quantity: "2",
+        reason,
+        idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+        expectedStock: "4",
+      }).success,
+    ).toBe(false);
+  });
+
   it("calculates an adjustment as an entry or exit", () => {
     expect(calculateStockAdjustment(4, 9)).toEqual({ type: "IN", quantity: 5, resultingStock: 9 });
     expect(calculateStockAdjustment(9, 4)).toEqual({ type: "OUT", quantity: 5, resultingStock: 4 });
@@ -105,6 +148,26 @@ describe("movement rules", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("creates stable fingerprints for equivalent normalized input", () => {
+    expect(
+      createRequestFingerprint({ productId: "product-1", quantity: 2, type: "IN" }),
+    ).toBe(createRequestFingerprint({ type: "IN", quantity: 2, productId: "product-1" }));
+    expect(
+      createRequestFingerprint({ productId: "product-1", quantity: 3, type: "IN" }),
+    ).not.toBe(createRequestFingerprint({ productId: "product-1", quantity: 2, type: "IN" }));
+  });
+
+  it("preserves a key for retries and rotates it for a new intent", () => {
+    const generatedKeys = ["key-1", "key-2"];
+    const lifecycle = createIdempotencyKeyLifecycle(() => generatedKeys.shift() ?? "unexpected-key");
+
+    expect(lifecycle.getKey()).toBeNull();
+    expect(lifecycle.ensureKey()).toBe("key-1");
+    expect(lifecycle.ensureKey()).toBe("key-1");
+    expect(lifecycle.rotateKey()).toBe("key-2");
+    expect(lifecycle.getKey()).toBe("key-2");
   });
 });
 
