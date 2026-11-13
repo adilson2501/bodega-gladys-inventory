@@ -2,17 +2,20 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { signOut } from "@/actions/auth";
-
+import { InactivityManager } from "@/components/auth/inactivity-manager";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { LogoutButton } from "@/components/auth/logout-button";
+import { getInventoryActor } from "@/lib/auth/actor";
 import { getAuth } from "@/lib/auth/server";
 import { hasAuthenticatedUser } from "@/lib/auth/route-guard";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await connection();
   const { data: session } = await getAuth().getSession();
+  const actor = getInventoryActor(session);
+  const sessionId = session?.session?.id;
 
-  if (!hasAuthenticatedUser(session)) {
+  if (!hasAuthenticatedUser(session) || !actor || typeof sessionId !== "string") {
     redirect("/auth/sign-in");
   }
 
@@ -33,18 +36,12 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
             </div>
           </div>
           <DesktopNavigation />
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-            >
-              Salir
-            </button>
-          </form>
+          <LogoutButton sessionId={sessionId} />
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">{children}</main>
+      <InactivityManager userId={actor.id} sessionId={sessionId} sessionCreatedAt={session?.session?.createdAt ?? null} />
       <BottomNavigation />
     </div>
   );
