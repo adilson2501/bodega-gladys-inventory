@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const mainItems = [
   { href: "/", label: "Inicio", icon: "home" },
@@ -18,16 +18,45 @@ const moreItems = [
 export function BottomNavigation() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const navigationRef = useRef<HTMLElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreActive = moreItems.some(([href]) => pathname.startsWith(href));
 
+  useEffect(() => {
+    const closeTimer = window.setTimeout(() => setOpen(false), 0);
+    return () => window.clearTimeout(closeTimer);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!navigationRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        moreButtonRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <nav aria-label="Navegación principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[max(.4rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
-      {open ? <div className="absolute bottom-full right-2 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu">
+    <nav ref={navigationRef} aria-label="Navegación principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[max(.4rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+      {open ? <div id="mobile-more-menu" className="absolute bottom-full right-2 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu">
         {moreItems.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800" role="menuitem">{label}</Link>)}
       </div> : null}
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
-        {mainItems.map((item) => <NavItem key={item.href} {...item} active={item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)} />)}
-        <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-semibold ${moreActive || open ? "bg-emerald-50 text-emerald-800" : "text-slate-600"}`}>
+        {mainItems.map((item) => <NavItem key={item.href} {...item} active={item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)} onNavigate={() => setOpen(false)} />)}
+        <button ref={moreButtonRef} type="button" aria-expanded={open} aria-controls="mobile-more-menu" aria-haspopup="menu" onClick={() => setOpen((value) => !value)} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-semibold ${moreActive || open ? "bg-emerald-50 text-emerald-800" : "text-slate-600"}`}>
           <Icon name="more" /><span>Más</span>
         </button>
       </div>
@@ -35,8 +64,8 @@ export function BottomNavigation() {
   );
 }
 
-function NavItem({ href, label, icon, active }: { href: string; label: string; icon: "home" | "sales" | "products"; active: boolean }) {
-  return <Link href={href} aria-current={active ? "page" : undefined} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-semibold ${active ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}><Icon name={icon} /><span>{label}</span></Link>;
+function NavItem({ href, label, icon, active, onNavigate }: { href: string; label: string; icon: "home" | "sales" | "products"; active: boolean; onNavigate: () => void }) {
+  return <Link href={href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-semibold ${active ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}><Icon name={icon} /><span>{label}</span></Link>;
 }
 
 function Icon({ name }: { name: "home" | "sales" | "products" | "more" }) {
