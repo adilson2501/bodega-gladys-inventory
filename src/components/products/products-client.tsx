@@ -41,7 +41,17 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
   const [notice, setNotice] = useState("");
   const [stockFilter, setStockFilter] = useState<"ALL" | "LOW" | "OUT">("ALL");
+  const [query, setQuery] = useState(searchQuery);
   const dialogOpenerRef = useRef<HTMLElement | null>(null);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleProducts = products.filter((product) => {
+    const matchesSearch = !normalizedQuery || [product.name, product.category, product.barcode]
+      .filter(Boolean)
+      .some((value) => value!.toLocaleLowerCase().includes(normalizedQuery));
+    const matchesStock = stockFilter === "ALL"
+      || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock);
+    return matchesSearch && matchesStock;
+  });
 
   function closeForm() {
     setIsCreating(false);
@@ -55,15 +65,9 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-base font-semibold text-emerald-800">Productos</p>
-          <h1 className="mt-1 page-heading font-bold text-slate-950">
-            Productos
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">Catálogo, precios y existencias.</p>
-        </div>
+    <div className="space-y-4 sm:space-y-5">
+      <section className="flex items-center justify-between gap-3">
+        <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Productos</h1>
         <button
           type="button"
           onClick={() => {
@@ -71,19 +75,19 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
             dialogOpenerRef.current = document.activeElement as HTMLElement | null;
             setIsCreating(true);
           }}
-          className="min-h-14 w-full rounded-xl bg-emerald-700 px-5 text-base font-bold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200 sm:w-auto"
+          className="min-h-11 shrink-0 rounded-lg bg-emerald-700 px-3 text-sm font-bold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200"
         >
           + Agregar producto
         </button>
       </section>
 
       {notice ? (
-        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+        <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           {notice}
         </p>
       ) : null}
 
-      <form method="get" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
         <label htmlFor="product-search" className="sr-only">
           Buscar productos
         </label>
@@ -91,25 +95,20 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           id="product-search"
           name="q"
           type="search"
-          defaultValue={searchQuery}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar por nombre, categoría o código"
-          className="min-h-12 min-w-0 w-full rounded-lg border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          className="min-h-11 min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
-        <button
-          type="submit"
-          className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
-        >
-          Buscar
-        </button>
-      </form>
+      </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar productos por stock">
         {([["ALL", "Todos"], ["LOW", "Por reponer"], ["OUT", "Agotados"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={stockFilter === value} onClick={() => setStockFilter(value)} className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold ${stockFilter === value ? "bg-emerald-800 text-white" : "border border-slate-300 bg-white text-slate-700"}`}>{label}</button>)}
       </div>
 
-      {products.filter((product) => stockFilter === "ALL" || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock)).length > 0 ? (
-        <section className="space-y-3" aria-label="Lista de productos">
-          {products.filter((product) => stockFilter === "ALL" || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock)).map((product) => (
+      {visibleProducts.length > 0 ? (
+        <section className="grid gap-2" aria-label="Lista de productos">
+          {visibleProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -122,7 +121,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           ))}
         </section>
       ) : (
-        <EmptyProductsState hasSearch={Boolean(searchQuery)} onCreate={() => setIsCreating(true)} />
+        <EmptyProductsState hasSearch={Boolean(normalizedQuery)} onCreate={() => setIsCreating(true)} />
       )}
 
       {isCreating || editingProduct ? (
@@ -147,17 +146,17 @@ function ProductCard({
   const status = getStockStatus(product.currentStock, product.minimumStock);
 
   return (
-    <article className="surface px-3 py-3 sm:p-4">
+    <article className="surface px-3 py-2.5 sm:p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-base font-bold text-slate-950">{product.name}</h2>
-          <p className="mt-1 text-xs text-slate-600">{product.category || "Sin categoría"} · {unitLabels[product.unitOfMeasure]}</p>
-          {product.barcode ? <p className="mt-1 text-xs text-slate-500">Código: {product.barcode}</p> : null}
+          <p className="mt-0.5 text-[12px] text-slate-600">{product.category || "Sin categoría"} · {unitLabels[product.unitOfMeasure]}</p>
+          {product.barcode ? <p className="mt-0.5 text-[12px] text-slate-500">Código: {product.barcode}</p> : null}
         </div>
         <StatusBadge status={status} />
       </div>
 
-      <div className="mt-3 grid grid-cols-3 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2.5">
+      <div className="mt-2 grid grid-cols-3 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2">
         <PriceValue value={product.sellingPrice} />
         <StockValue label="Stock" value={product.currentStock} />
         <StockValue label="Mínimo" value={product.minimumStock} />
@@ -183,13 +182,13 @@ function StockValue({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <p className="text-[11px] text-slate-600">{label}</p>
-      <p className="mt-0.5 text-lg font-bold text-slate-950">{value}</p>
+      <p className="mt-0.5 text-base font-bold text-slate-950">{value}</p>
     </div>
   );
 }
 
 function PriceValue({ value }: { value: string }) {
-  return <div className="pr-2"><p className="text-[11px] text-slate-600">Venta</p><p className="mt-0.5 text-lg font-bold text-slate-950">S/ {value}</p></div>;
+  return <div className="pr-2"><p className="text-[11px] text-slate-600">Venta</p><p className="mt-0.5 text-base font-bold text-slate-950">S/ {value}</p></div>;
 }
 
 function StatusBadge({ status }: { status: StockStatus }) {
@@ -200,7 +199,7 @@ function StatusBadge({ status }: { status: StockStatus }) {
   } satisfies Record<StockStatus, string>;
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${styles[status]}`}>
+    <span className={`shrink-0 rounded-md px-2 py-1 text-[12px] font-bold ${styles[status]}`}>
       {status}
     </span>
   );
@@ -214,11 +213,11 @@ function EmptyProductsState({
   onCreate: () => void;
 }) {
   return (
-    <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+    <section className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
       <h2 className="text-lg font-semibold text-slate-950">
         {hasSearch ? "No encontramos productos" : "No hay productos registrados."}
       </h2>
-      <p className="mt-2 text-base text-slate-700">
+      <p className="mt-1 text-sm text-slate-700">
         {hasSearch
           ? "Prueba con otro nombre, categoría o código."
           : "Registra tu primer producto para comenzar."}
@@ -227,14 +226,14 @@ function EmptyProductsState({
         <button
           type="button"
           onClick={onCreate}
-          className="mt-5 min-h-12 rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800"
+          className="mt-3 min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800"
         >
           Registrar primer producto
         </button>
       ) : (
         <Link
           href="/productos"
-          className="mt-5 inline-flex min-h-12 items-center rounded-xl border border-slate-300 px-5 text-base font-bold text-slate-800 hover:bg-slate-50"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
         >
           Ver todos los productos
         </Link>
@@ -309,29 +308,28 @@ function ProductForm({
         aria-modal="true"
         aria-labelledby="product-form-title"
         onKeyDown={handleDialogKeyDown}
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl sm:p-8"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-base font-semibold text-emerald-800">Productos</p>
-            <h2 id="product-form-title" className="mt-2 text-2xl font-bold text-slate-950">
+            <h2 id="product-form-title" className="text-lg font-bold text-slate-950">
               {product ? "Editar producto" : "Agregar producto"}
             </h2>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-11 rounded-xl px-3 text-base font-semibold text-slate-700 hover:bg-slate-100"
+            className="min-h-11 rounded-lg px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100"
           >
             Cerrar
           </button>
         </div>
 
-        <p className="mt-3 text-base leading-7 text-slate-700">
+        <p className="mt-2 text-sm leading-5 text-slate-700">
           Completa el nombre y el stock mínimo. Lo demás es opcional. El stock actual se actualiza al registrar una entrada o salida.
         </p>
 
-        <form action={formAction} className="mt-6 space-y-5">
+        <form action={formAction} className="mt-4 space-y-3">
           {product ? <input type="hidden" name="id" value={product.id} /> : null}
 
           <FormField label="Nombre" htmlFor="product-name" required>
@@ -366,7 +364,7 @@ function ProductForm({
             />
           </FormField>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Precio de venta (S/)" htmlFor="product-selling-price" required>
               <input id="product-selling-price" name="sellingPrice" type="number" min="0" step="0.01" defaultValue={product?.sellingPrice ?? "0.00"} required className="form-input" />
             </FormField>
@@ -394,13 +392,13 @@ function ProductForm({
             />
           </FormField>
 
-          <label className="flex items-center gap-3 text-base font-semibold text-slate-900">
+          <label className="flex items-center gap-3 text-sm font-semibold text-slate-900">
             <input type="checkbox" name="isActive" value="true" defaultChecked={product?.isActive ?? true} className="h-5 w-5 accent-emerald-700" />
             Disponible para ventas y compras
           </label>
 
           {state?.error ? (
-            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-800">
+            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
               {state.error}
             </p>
           ) : null}
@@ -409,14 +407,14 @@ function ProductForm({
             <button
               type="button"
               onClick={onCancel}
-              className="min-h-12 rounded-xl border border-slate-300 px-5 text-base font-bold text-slate-800 hover:bg-slate-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="min-h-12 rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? "Guardando..." : "Guardar"}
             </button>
@@ -440,7 +438,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-2 block text-base font-semibold text-slate-900">
+        <label htmlFor={htmlFor} className="mb-1 block text-sm font-semibold text-slate-900">
         {label} {required ? <span aria-hidden="true">*</span> : null}
       </label>
       {children}

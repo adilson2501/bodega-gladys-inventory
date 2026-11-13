@@ -11,6 +11,7 @@ const allowedDevOrigins = readHostList("DEV_ALLOWED_ORIGINS");
 const allowedServerActionOrigins = readHostList("DEV_SERVER_ACTION_ALLOWED_ORIGINS");
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   // Keep remote development limited to explicitly configured hosts.
   allowedDevOrigins: allowedDevOrigins.length ? allowedDevOrigins : undefined,
   experimental: {

@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { asc, ilike, or } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
@@ -19,15 +19,6 @@ export default async function ProductsPage({
   await connection();
 
   const query = ((await searchParams).q ?? "").trim();
-  const searchPattern = `%${query}%`;
-  const conditions = query
-    ? or(
-        ilike(products.name, searchPattern),
-        ilike(products.category, searchPattern),
-        ilike(products.barcode, searchPattern),
-      )
-    : undefined;
-
   const productRows = await db
     .select({
       id: products.id,
@@ -42,7 +33,6 @@ export default async function ProductsPage({
       minimumStock: products.minimumStock,
     })
     .from(products)
-    .where(conditions)
     .orderBy(asc(products.name));
 
   const productList: ProductListItem[] = productRows;

@@ -57,56 +57,54 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       <section>
-        <p className="text-base font-semibold text-emerald-800">Stock</p>
-        <h1 className="mt-1 page-heading font-bold text-slate-950">Stock</h1>
-        <p className="mt-1 text-sm text-slate-600">Existencias y productos por reponer.</p>
+        <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Stock</h1>
       </section>
 
       {productsNeedingRestock > 0 ? (
         <section
           aria-label="Alerta de reposición"
-          className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950"
         >
-          <p className="text-lg font-bold">Hay {productsNeedingRestock} producto{productsNeedingRestock === 1 ? "" : "s"} por reponer.</p>
-          <p className="mt-2 text-base leading-6">
+          <p className="text-sm font-bold">Hay {productsNeedingRestock} producto{productsNeedingRestock === 1 ? "" : "s"} por reponer.</p>
+          <p className="mt-0.5 text-[13px] leading-5">
             {summary.agotados > 0 && summary.stockBajo > 0
               ? `${summary.agotados} agotado${summary.agotados === 1 ? "" : "s"} y ${summary.stockBajo} con stock bajo.`
               : summary.agotados > 0
                 ? `${summary.agotados} producto${summary.agotados === 1 ? " está agotado" : "s están agotados"}.`
                 : "Tienen pocas unidades disponibles."}
           </p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setSelectedStatus("POR_REPONER")}
-              className="min-h-12 rounded-xl bg-amber-800 px-5 text-base font-bold text-white hover:bg-amber-900"
+              className="min-h-10 rounded-lg bg-amber-800 px-3 text-sm font-bold text-white hover:bg-amber-900"
             >
               Ver productos por reponer
             </button>
             <Link
               href="/movimiento"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-amber-800 px-5 text-base font-bold text-amber-950 hover:bg-amber-100"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-800 px-3 text-sm font-bold text-amber-950 hover:bg-amber-100"
             >
               Registrar una entrada
             </Link>
           </div>
         </section>
       ) : products.length > 0 ? (
-        <section aria-label="Inventario al día" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
-          <p className="text-lg font-bold">Todo está en orden.</p>
-          <p className="mt-2 text-base leading-6">No hay productos que necesiten reposición por ahora.</p>
+        <section aria-label="Inventario al día" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950">
+          <p className="text-sm font-bold">Todo está en orden.</p>
+          <p className="mt-0.5 text-[13px] leading-5">No hay productos que necesiten reposición por ahora.</p>
         </section>
       ) : null}
 
-      <section aria-label="Resumen de inventario" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <SummaryCard label="Total de productos" value={summary.total} />
+      <section aria-label="Resumen de inventario" className="grid grid-cols-3 gap-2">
+        <SummaryCard label="Total" value={summary.total} />
         <SummaryCard label="Por reponer" value={productsNeedingRestock} tone="warning" />
         <SummaryCard label="Agotados" value={summary.agotados} tone="danger" />
       </section>
 
-      <section className="space-y-3" aria-label="Filtros de inventario">
+      <section className="space-y-2" aria-label="Filtros de inventario">
         <label htmlFor="inventory-search" className="sr-only">
           Buscar productos
         </label>
@@ -116,7 +114,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Buscar producto"
-          className="min-h-14 w-full rounded-xl border border-slate-300 bg-white px-4 text-lg text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por estado">
           {filters.map((filter) => (
@@ -125,7 +123,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
               type="button"
               aria-pressed={selectedStatus === filter.value}
               onClick={() => setSelectedStatus(filter.value)}
-              className={`min-h-12 shrink-0 rounded-xl px-5 text-base font-bold transition ${
+                className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold transition ${
                 selectedStatus === filter.value
                   ? "bg-emerald-800 text-white"
                   : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
@@ -139,7 +137,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
 
       {visibleProducts.length > 0 ? (
         <section id="inventory-list" className="space-y-3" aria-label="Lista de inventario">
-          <h2 className="text-xl font-bold text-slate-950">
+          <h2 className="text-[15px] font-bold text-slate-950">
             {selectedStatus === "POR_REPONER" ? "Productos por reponer" : "Todos los productos"}
           </h2>
           {visibleProducts.map((product) => (
@@ -154,7 +152,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
       )}
 
       {products.length > 0 ? (
-        <p className="rounded-xl bg-slate-100 px-4 py-4 text-base text-slate-700">
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-[13px] text-slate-700">
           El stock cambia cuando registras una entrada o salida.
         </p>
       ) : null}
@@ -179,9 +177,9 @@ function SummaryCard({
   };
 
   return (
-    <article className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${styles[tone]}`}>
-      <p className="text-sm leading-5">{label}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
+    <article className={`rounded-lg border px-2 py-2 shadow-sm sm:px-3 ${styles[tone]}`}>
+      <p className="truncate text-[12px] leading-4">{label}</p>
+      <p className="mt-0.5 text-xl font-bold">{value}</p>
     </article>
   );
 }
@@ -192,7 +190,7 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
   const restockMessage = getRestockMessage(product, status);
 
   return (
-    <article className={`surface px-3 py-3 sm:p-4 ${requiresRestock ? "border-amber-300" : ""}`}>
+    <article className={`surface px-3 py-2.5 sm:p-3 ${requiresRestock ? "border-amber-300" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="truncate text-base font-bold text-slate-950">{product.name}</h2>
@@ -200,14 +198,14 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
         </div>
         <StatusBadge status={status} />
       </div>
-      <div className="mt-3 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2.5">
+      <div className="mt-2 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2">
         <div>
           <p className="text-[11px] text-slate-600">Stock actual</p>
-            <p className="mt-0.5 text-xl font-bold text-slate-950">{product.currentStock}</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-950">{product.currentStock}</p>
         </div>
         <div className="pl-3">
           <p className="text-[11px] text-slate-600">Stock mínimo</p>
-            <p className="mt-0.5 text-lg font-bold text-slate-800">{product.minimumStock}</p>
+            <p className="mt-0.5 text-base font-bold text-slate-800">{product.minimumStock}</p>
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -233,7 +231,7 @@ function StatusBadge({ status }: { status: StockStatus }) {
   } satisfies Record<StockStatus, string>;
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${styles[status]}`}>
+    <span className={`shrink-0 rounded-md px-2 py-1 text-[12px] font-bold ${styles[status]}`}>
       {status}
     </span>
   );
