@@ -16,6 +16,7 @@ export default async function InventoryPage() {
       id: products.id,
       name: products.name,
       category: products.category,
+      barcode: products.barcode,
       currentStock: products.currentStock,
       minimumStock: products.minimumStock,
     })

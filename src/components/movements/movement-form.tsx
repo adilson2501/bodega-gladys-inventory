@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { createMovement, type MovementActionState } from "@/actions/movements";
 import { useIdempotencyKey } from "@/lib/inventory/use-idempotency-key";
+import { getScannerKeyBehavior, searchProducts } from "@/lib/products/search";
 import {
   movementReasonLabels,
   movementReasons,
@@ -34,6 +35,7 @@ export function MovementForm({
     initialProduct?.id ?? products[0]?.id ?? "",
   );
   const [productSearch, setProductSearch] = useState("");
+  const [scanMessage, setScanMessage] = useState("");
   const [movementType, setMovementType] = useState<(typeof movementTypes)[number]>("IN");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<(typeof movementReasons)[number]>("PURCHASE");
@@ -67,6 +69,21 @@ export function MovementForm({
   }, [movementType, router, state]);
 
   const validReasons = validReasonsByType[movementType];
+
+  function handleProductSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const behavior = getScannerKeyBehavior(event.key, event.currentTarget.value);
+    if (behavior === "ignore") return;
+    if (behavior === "commit") event.preventDefault();
+    const matches = searchProducts(products, event.currentTarget.value);
+    if (matches.length === 1) {
+      setSelectedProductId(matches[0].id);
+      setProductSearch("");
+      setScanMessage(`${matches[0].name} seleccionado.`);
+      rotateKey();
+    } else if (behavior === "commit") {
+      setScanMessage(matches.length === 0 ? "No encontramos ese producto o código de barras." : "Selecciona un producto de la lista.");
+    }
+  }
 
   if (products.length === 0) {
     return (
@@ -104,10 +121,12 @@ export function MovementForm({
           <label htmlFor="movement-product" className="mb-1 block text-sm font-semibold text-slate-900">
             Producto <span aria-hidden="true">*</span>
           </label>
-          <input id="movement-product" type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Buscar por nombre o código" className="form-input" />
+          <input id="movement-product" type="search" value={productSearch} onChange={(event) => { setProductSearch(event.target.value); setScanMessage(""); }} onKeyDown={handleProductSearchKeyDown} placeholder="Buscar por nombre o código" className="form-input" autoComplete="off" />
            {productSearch.trim() ? <div className="mt-2 max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
-             {products.filter((product) => product.name.toLocaleLowerCase().includes(productSearch.trim().toLocaleLowerCase()) || product.barcode?.includes(productSearch.trim())).slice(0, 8).map((product) => <button key={product.id} type="button" onClick={() => { setSelectedProductId(product.id); setProductSearch(""); rotateKey(); }} className="flex min-h-11 w-full items-center justify-between rounded-md px-3 text-left text-sm hover:bg-emerald-50"><span className="font-semibold">{product.name}</span><span className="text-slate-500">{product.currentStock} disp.</span></button>)}
+             {searchProducts(products, productSearch).map((product) => <button key={product.id} type="button" onClick={() => { setSelectedProductId(product.id); setProductSearch(""); setScanMessage(`${product.name} seleccionado.`); rotateKey(); }} className="flex min-h-11 w-full items-center justify-between rounded-md px-3 text-left text-sm hover:bg-emerald-50"><span className="font-semibold">{product.name}</span><span className="text-slate-500">{product.currentStock} disp.</span></button>)}
+             {searchProducts(products, productSearch).length === 0 ? <p className="px-3 py-2 text-sm text-slate-600">No encontramos productos.</p> : null}
            </div> : null}
+           {scanMessage ? <p role="status" className="mt-1 text-xs text-slate-600">{scanMessage}</p> : null}
           <input type="hidden" name="productId" value={selectedProductId} />
            <div className="mt-2 flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm"><span className="truncate font-semibold text-emerald-950">{selectedProduct?.name ?? "Selecciona un producto"}</span><span className="shrink-0 text-emerald-800">{selectedProduct?.currentStock ?? 0} disponibles</span></div>
 

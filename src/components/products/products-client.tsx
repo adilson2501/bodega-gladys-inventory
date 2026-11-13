@@ -16,6 +16,7 @@ import {
   type ProductActionState,
 } from "@/actions/products";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
+import { normalizeProductQuery, productMatchesQuery } from "@/lib/products/search";
 import { unitLabels, unitOfMeasureValues } from "@/lib/validations/commercial";
 
 export type ProductListItem = {
@@ -43,11 +44,9 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   const [stockFilter, setStockFilter] = useState<"ALL" | "LOW" | "OUT">("ALL");
   const [query, setQuery] = useState(searchQuery);
   const dialogOpenerRef = useRef<HTMLElement | null>(null);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const normalizedQuery = normalizeProductQuery(query);
   const visibleProducts = products.filter((product) => {
-    const matchesSearch = !normalizedQuery || [product.name, product.category, product.barcode]
-      .filter(Boolean)
-      .some((value) => value!.toLocaleLowerCase().includes(normalizedQuery));
+    const matchesSearch = productMatchesQuery(product, normalizedQuery);
     const matchesStock = stockFilter === "ALL"
       || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock);
     return matchesSearch && matchesStock;
@@ -360,6 +359,9 @@ function ProductForm({
               name="barcode"
               type="text"
               defaultValue={product?.barcode ?? ""}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault();
+              }}
               className="form-input"
             />
           </FormField>

@@ -5,11 +5,13 @@ import { useMemo, useState } from "react";
 
 import { type InventorySummary } from "@/lib/inventory/inventory-summary";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
+import { productMatchesQuery } from "@/lib/products/search";
 
 export type InventoryListItem = {
   id: string;
   name: string;
   category: string | null;
+  barcode: string | null;
   currentStock: number;
   minimumStock: number;
 };
@@ -38,8 +40,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
         .filter((product) => {
           const matchesSearch =
             !normalizedQuery ||
-            product.name.toLocaleLowerCase().includes(normalizedQuery) ||
-            product.category?.toLocaleLowerCase().includes(normalizedQuery);
+            productMatchesQuery(product, normalizedQuery);
 
           return (
             matchesSearch &&

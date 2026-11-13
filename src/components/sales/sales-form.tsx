@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { createSale, type SaleActionState } from "@/actions/sales";
+import { calculateCartTotal, canSubmitCart, removeCartLine } from "@/lib/commercial/cart";
 import { useIdempotencyKey } from "@/lib/inventory/use-idempotency-key";
+import { findExactProduct, getScannerKeyBehavior, searchProducts } from "@/lib/products/search";
 import { paymentLabels, paymentMethodValues } from "@/lib/validations/commercial";
 
 export type SaleProduct = { id: string; name: string; barcode: string | null; sellingPrice: string; currentStock: number; unitOfMeasure: string };
@@ -12,47 +14,99 @@ type SaleLine = { productId: string; quantity: number; unitPrice: string };
 
 export function SalesForm({ products }: { products: SaleProduct[] }) {
   const router = useRouter();
-  const [lines, setLines] = useState<SaleLine[]>(products[0] ? [{ productId: products[0].id, quantity: 1, unitPrice: products[0].sellingPrice }] : []);
+  const [lines, setLines] = useState<SaleLine[]>([]);
   const [payment, setPayment] = useState<(typeof paymentMethodValues)[number]>("CASH");
   const [productSearch, setProductSearch] = useState("");
+  const [scanMessage, setScanMessage] = useState("");
+  const productSearchRef = useRef<HTMLInputElement>(null);
   const { inputRef, ensureKey, rotateKey } = useIdempotencyKey();
   const [state, formAction, isPending] = useActionState<SaleActionState, FormData>(createSale, null);
+  const [dismissedSuccessState, setDismissedSuccessState] = useState<SaleActionState | null>(null);
 
-  useEffect(() => { if (state?.success) router.refresh(); }, [router, state]);
+  useEffect(() => {
+    if (!state?.success) return;
+    const resetTimer = window.setTimeout(() => {
+      setLines([]);
+      setProductSearch("");
+      setPayment("CASH");
+      setScanMessage("");
+      productSearchRef.current?.focus();
+    }, 0);
+    const dismissTimer = window.setTimeout(() => setDismissedSuccessState(state), 4000);
+    router.refresh();
+    return () => {
+      window.clearTimeout(resetTimer);
+      window.clearTimeout(dismissTimer);
+    };
+  }, [router, state]);
 
-  function addLine() {
-    const product = products.find((item) => !lines.some((line) => line.productId === item.id));
-    if (product) setLines((current) => [...current, { productId: product.id, quantity: 1, unitPrice: product.sellingPrice }]);
+  function addProduct(product: SaleProduct) {
+    if (product.currentStock < 1) {
+      setScanMessage(`${product.name} está agotado.`);
+      return;
+    }
+    const existingLine = lines.find((line) => line.productId === product.id);
+    if (existingLine) {
+      if (existingLine.quantity >= product.currentStock) {
+        setScanMessage(`No hay más stock disponible de ${product.name}.`);
+        return;
+      }
+      setLines((current) => current.map((line) => line.productId === product.id ? { ...line, quantity: line.quantity + 1 } : line));
+    } else {
+      setLines((current) => [...current, { productId: product.id, quantity: 1, unitPrice: product.sellingPrice }]);
+    }
+    setProductSearch("");
+    setScanMessage(`${product.name} agregado.`);
+    rotateKey();
+  }
+
+  function handleProductSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const behavior = getScannerKeyBehavior(event.key, event.currentTarget.value);
+    if (behavior === "ignore") return;
+    const exactProduct = findExactProduct(products, event.currentTarget.value);
+    if (behavior === "commit") event.preventDefault();
+    if (exactProduct) {
+      addProduct(exactProduct);
+    } else if (behavior === "commit") {
+      setScanMessage("No encontramos ese producto o código de barras.");
+    }
   }
 
   if (products.length === 0) return <EmptySales />;
-  const total = lines.reduce((sum, line) => sum + Number(line.unitPrice || 0) * line.quantity, 0).toFixed(2);
+  const total = calculateCartTotal(lines);
 
   return (
     <div className="space-y-4">
       <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Nueva venta</h1>
-      {state?.success ? <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">{state.success}</p> : null}
+      {state?.success && dismissedSuccessState !== state ? <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">{state.success}</p> : null}
       {state?.error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{state.error}</p> : null}
       <form action={formAction} onSubmit={ensureKey} className="surface space-y-3 p-3 sm:p-4">
         <input ref={inputRef} type="hidden" name="idempotencyKey" />
         <input type="hidden" name="items" value={JSON.stringify(lines)} readOnly />
-        <label htmlFor="sale-product-search" className="block text-sm font-semibold">Buscar producto
-          <input id="sale-product-search" type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nombre o código de barras" className="form-input mt-1" />
-        </label>
+        <div className="relative">
+          <label htmlFor="sale-product-search" className="block text-sm font-semibold">Buscar producto
+            <input ref={productSearchRef} id="sale-product-search" type="search" value={productSearch} onChange={(event) => { setProductSearch(event.target.value); setScanMessage(""); }} onKeyDown={handleProductSearchKeyDown} placeholder="Nombre o código de barras" className="form-input mt-1" autoComplete="off" />
+          </label>
+          {productSearch.trim() ? <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+            {searchProducts(products, productSearch).map((product) => <button key={product.id} type="button" onClick={() => addProduct(product)} className="flex min-h-11 w-full items-center justify-between rounded-md px-3 text-left text-sm hover:bg-emerald-50"><span className="truncate font-semibold">{product.name}</span><span className="shrink-0 pl-2 text-xs text-slate-500">S/ {product.sellingPrice} · {product.currentStock} disp.</span></button>)}
+            {searchProducts(products, productSearch).length === 0 ? <p className="px-3 py-2 text-sm text-slate-600">No encontramos productos.</p> : null}
+          </div> : null}
+          {scanMessage ? <p role="status" className="mt-1 text-xs text-slate-600">{scanMessage}</p> : null}
+        </div>
         <div><label htmlFor="payment" className="mb-1 block text-sm font-semibold">Forma de pago</label><select id="payment" name="paymentMethod" value={payment} onChange={(event) => { setPayment(event.target.value as typeof payment); rotateKey(); }} className="form-input">{paymentMethodValues.map((method) => <option key={method} value={method}>{paymentLabels[method]}</option>)}</select></div>
         <div className="space-y-2">
           {lines.map((line, index) => {
             const product = products.find((item) => item.id === line.productId)!;
              return <div key={line.productId} className="rounded-lg border border-slate-200 p-2.5">
-                <div className="flex items-start justify-between gap-2"><label className="block min-w-0 flex-1 text-sm font-semibold">Producto<select value={line.productId} onChange={(event) => { const next = products.find((item) => item.id === event.target.value)!; setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, productId: next.id, unitPrice: next.sellingPrice } : item)); rotateKey(); }} className="form-input mt-1">{products.filter((item) => item.id === line.productId || item.name.toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()) || item.barcode?.includes(productSearch)).map((item) => <option key={item.id} value={item.id} disabled={lines.some((other, otherIndex) => otherIndex !== index && other.productId === item.id)}>{item.name} ({item.currentStock} disponibles)</option>)}</select></label>{lines.length > 1 ? <button type="button" onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="min-h-10 px-2 text-sm font-bold text-red-700">Quitar</button> : null}</div>
+                <div className="flex items-center justify-between gap-2"><p className="min-w-0 truncate text-sm font-semibold">{product.name}<span className="ml-1 text-xs font-normal text-slate-500">({product.currentStock} disponibles)</span></p><button type="button" onClick={() => setLines((current) => removeCartLine(current, line.productId))} className="min-h-10 shrink-0 px-2 text-sm font-bold text-red-700">Quitar</button></div>
                 <div className="mt-2 grid grid-cols-2 gap-2"><label className="text-sm font-semibold">Cantidad<input type="number" min="1" max={product.currentStock} step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.min(product.currentStock, Number(event.target.value)) } : item))} className="form-input mt-1" /></label><label className="text-sm font-semibold">Precio unitario<input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} className="form-input mt-1" /></label></div>
                <p className="mt-2 text-right text-[13px] text-slate-600">Subtotal: <strong>S/ {(Number(line.unitPrice || 0) * line.quantity).toFixed(2)}</strong> · {product.unitOfMeasure}</p>
             </div>;
           })}
         </div>
-        <button type="button" onClick={addLine} className="min-h-11 w-full rounded-lg border border-emerald-700 px-4 text-sm font-bold text-emerald-800">+ Agregar producto</button>
+         {lines.length === 0 ? <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Busca un producto o escanea su código para comenzar.</p> : null}
          <div className="sticky bottom-16 z-10 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm lg:bottom-2"><span className="text-sm font-semibold">Total</span><strong className="text-xl">S/ {total}</strong></div>
-        <button type="submit" disabled={isPending || lines.length === 0} className="min-h-12 w-full rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">{isPending ? "Registrando..." : "Registrar venta"}</button>
+        <button type="submit" disabled={isPending || !canSubmitCart(lines)} className="min-h-12 w-full rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">{isPending ? "Registrando..." : "Registrar venta"}</button>
       </form>
     </div>
   );
