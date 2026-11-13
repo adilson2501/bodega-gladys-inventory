@@ -40,6 +40,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
   const [notice, setNotice] = useState("");
+  const [stockFilter, setStockFilter] = useState<"ALL" | "LOW" | "OUT">("ALL");
   const dialogOpenerRef = useRef<HTMLElement | null>(null);
 
   function closeForm() {
@@ -55,15 +56,13 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-base font-semibold text-emerald-800">Productos</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-1 page-heading font-bold text-slate-950">
             Productos
           </h1>
-          <p className="mt-2 text-base leading-7 text-slate-700">
-            Busca un producto o agrega uno nuevo cuando lo necesites.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">Catálogo, precios y existencias.</p>
         </div>
         <button
           type="button"
@@ -93,20 +92,24 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           name="q"
           type="search"
           defaultValue={searchQuery}
-          placeholder="Buscar por nombre o categoría"
-          className="min-h-14 min-w-0 w-full rounded-xl border border-slate-300 bg-white px-4 text-lg text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          placeholder="Buscar por nombre, categoría o código"
+          className="min-h-12 min-w-0 w-full rounded-lg border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
         <button
           type="submit"
-          className="mt-3 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-800 hover:bg-slate-50"
+          className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
         >
           Buscar
         </button>
       </form>
 
-      {products.length > 0 ? (
+      <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar productos por stock">
+        {([["ALL", "Todos"], ["LOW", "Por reponer"], ["OUT", "Agotados"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={stockFilter === value} onClick={() => setStockFilter(value)} className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold ${stockFilter === value ? "bg-emerald-800 text-white" : "border border-slate-300 bg-white text-slate-700"}`}>{label}</button>)}
+      </div>
+
+      {products.filter((product) => stockFilter === "ALL" || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock)).length > 0 ? (
         <section className="space-y-3" aria-label="Lista de productos">
-          {products.map((product) => (
+          {products.filter((product) => stockFilter === "ALL" || (stockFilter === "OUT" ? product.currentStock === 0 : product.currentStock <= product.minimumStock)).map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -144,38 +147,34 @@ function ProductCard({
   const status = getStockStatus(product.currentStock, product.minimumStock);
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
+    <article className="surface px-3 py-3 sm:p-4">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold text-slate-950">{product.name}</h2>
-          <p className="mt-1 text-base text-slate-600">
-            {product.category || "Sin categoría"}
-          </p>
-          <p className="mt-2 text-sm text-slate-700">
-            Venta: <strong>S/ {product.sellingPrice}</strong> · {unitLabels[product.unitOfMeasure]}
-          </p>
-          {product.barcode ? (
-            <p className="mt-2 text-sm text-slate-500">Código: {product.barcode}</p>
-          ) : null}
+          <h2 className="truncate text-base font-bold text-slate-950">{product.name}</h2>
+          <p className="mt-1 text-xs text-slate-600">{product.category || "Sin categoría"} · {unitLabels[product.unitOfMeasure]}</p>
+          {product.barcode ? <p className="mt-1 text-xs text-slate-500">Código: {product.barcode}</p> : null}
         </div>
         <StatusBadge status={status} />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
-        <StockValue label="Stock actual" value={product.currentStock} />
-        <StockValue label="Stock mínimo" value={product.minimumStock} />
+      <div className="mt-3 grid grid-cols-3 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2.5">
+        <PriceValue value={product.sellingPrice} />
+        <StockValue label="Stock" value={product.currentStock} />
+        <StockValue label="Mínimo" value={product.minimumStock} />
       </div>
-      <p className={`mt-3 text-sm font-bold ${product.isActive ? "text-emerald-700" : "text-slate-500"}`}>
+      <div className="mt-2 flex items-center justify-between gap-2">
+      <p className={`text-xs font-bold ${product.isActive ? "text-emerald-700" : "text-slate-500"}`}>
         {product.isActive ? "Producto activo" : "Producto inactivo"}
       </p>
 
-      <button
+       <button
         type="button"
         onClick={(event) => onEdit(event.currentTarget)}
-        className="mt-4 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
-      >
-        Ver o editar producto
-      </button>
+          className="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
+       >
+         Editar
+       </button>
+      </div>
     </article>
   );
 }
@@ -183,10 +182,14 @@ function ProductCard({
 function StockValue({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
+      <p className="text-[11px] text-slate-600">{label}</p>
+      <p className="mt-0.5 text-lg font-bold text-slate-950">{value}</p>
     </div>
   );
+}
+
+function PriceValue({ value }: { value: string }) {
+  return <div className="pr-2"><p className="text-[11px] text-slate-600">Venta</p><p className="mt-0.5 text-lg font-bold text-slate-950">S/ {value}</p></div>;
 }
 
 function StatusBadge({ status }: { status: StockStatus }) {

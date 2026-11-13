@@ -9,7 +9,12 @@ import { authClient } from "@/lib/auth/client";
 
 export function SignInForm() {
   const router = useRouter();
-  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const {
+    data: session,
+    error: sessionError,
+    isPending: isSessionPending,
+    refetch: refetchSession,
+  } = authClient.useSession();
   const [state, formAction, isPending] = useActionState(signIn, null);
 
   useEffect(() => {
@@ -18,7 +23,34 @@ export function SignInForm() {
     }
   }, [router, session]);
 
-  if (isSessionPending || session?.user) {
+  if (isSessionPending) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-5 py-8">
+        <p className="text-sm text-slate-600">Cargando acceso...</p>
+      </main>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-5 py-8">
+        <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p role="alert" className="text-sm text-red-800">
+            No se pudo comprobar la sesión. Revisa la conexión e inténtalo nuevamente.
+          </p>
+          <button
+            type="button"
+            onClick={() => void refetchSession()}
+            className="mt-5 min-h-11 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+          >
+            Reintentar
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (session?.user) {
     return (
       <main className="flex min-h-screen items-center justify-center px-5 py-8">
         <p className="text-sm text-slate-600">Cargando acceso...</p>

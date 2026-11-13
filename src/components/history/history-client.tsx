@@ -52,10 +52,8 @@ export function HistoryClient({ movements }: { movements: HistoryMovement[] }) {
     <div className="space-y-6">
       <section>
         <p className="text-base font-semibold text-emerald-800">Historial</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Movimientos registrados</h1>
-        <p className="mt-2 text-base leading-7 text-slate-700">
-          Revisa rápidamente las entradas y salidas que ya realizaste.
-        </p>
+        <h1 className="mt-1 page-heading font-bold text-slate-950">Historial</h1>
+        <p className="mt-1 text-sm text-slate-600">Entradas, salidas y ajustes registrados.</p>
       </section>
 
       {movements.length > 0 ? (
@@ -117,20 +115,20 @@ function MovementCard({ movement }: { movement: HistoryMovement }) {
   const isEntry = movement.type === "IN";
 
   return (
-    <article className={`rounded-2xl border bg-white p-5 shadow-sm ${isEntry ? "border-emerald-200" : "border-amber-200"}`}>
-      <div className="flex items-start justify-between gap-4">
+    <article className={`surface px-3 py-3 ${isEntry ? "border-emerald-200" : "border-amber-200"}`}>
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className={`text-base font-bold ${isEntry ? "text-emerald-800" : "text-amber-900"}`}>
+          <p className={`text-xs font-bold ${isEntry ? "text-emerald-800" : "text-amber-900"}`}>
             {movementTypeLabels[movement.type]}
           </p>
-          <h2 className="mt-1 truncate text-xl font-bold text-slate-950">{movement.productName}</h2>
+          <h2 className="mt-0.5 truncate text-base font-bold text-slate-950">{movement.productName}</h2>
         </div>
-        <p className={`shrink-0 rounded-xl px-3 py-2 text-lg font-bold ${isEntry ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
+        <p className={`shrink-0 rounded-lg px-2.5 py-1.5 text-base font-bold ${isEntry ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
           {isEntry ? "+" : "-"}{movement.quantity}
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-base text-slate-700 sm:grid-cols-2">
+      <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 sm:grid-cols-2">
         <p>
           <span className="block text-sm text-slate-600">Motivo</span>
           <span className="font-semibold text-slate-900">{movementReasonLabels[movement.reason]}</span>
@@ -142,8 +140,8 @@ function MovementCard({ movement }: { movement: HistoryMovement }) {
           </span>
         </p>
       </div>
-        <p className="mt-4 text-sm font-medium text-slate-600">{formatDate(movement.createdAt)}</p>
-      <p className="mt-1 text-sm text-slate-500">Origen: {movement.source} · Responsable: {movement.actorEmail ?? "Histórico sin responsable"}</p>
+      <p className="mt-3 text-xs font-medium text-slate-600">{formatDate(movement.createdAt)}</p>
+      <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer font-semibold">Ver trazabilidad</summary><p className="mt-1">Origen: {movement.source} · Responsable: {movement.actorEmail ?? "No disponible"}</p></details>
     </article>
   );
 }

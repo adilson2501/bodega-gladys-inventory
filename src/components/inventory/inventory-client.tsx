@@ -19,11 +19,12 @@ type InventoryClientProps = {
   summary: InventorySummary;
 };
 
-type StatusFilter = "TODOS" | "POR_REPONER";
+type StatusFilter = "TODOS" | "POR_REPONER" | "AGOTADO";
 
 const filters: { value: StatusFilter; label: string }[] = [
   { value: "TODOS", label: "Todos" },
   { value: "POR_REPONER", label: "Por reponer" },
+  { value: "AGOTADO", label: "Agotados" },
 ];
 
 export function InventoryClient({ products, summary }: InventoryClientProps) {
@@ -42,7 +43,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
 
           return (
             matchesSearch &&
-            (selectedStatus === "TODOS" || needsRestock(product.currentStock, product.minimumStock))
+            (selectedStatus === "TODOS" || (selectedStatus === "POR_REPONER" && needsRestock(product.currentStock, product.minimumStock)) || getStockStatus(product.currentStock, product.minimumStock) === selectedStatus)
           );
         })
         .sort((firstProduct, secondProduct) => {
@@ -59,10 +60,8 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
     <div className="space-y-6">
       <section>
         <p className="text-base font-semibold text-emerald-800">Stock</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Revisa qué falta</h1>
-        <p className="mt-2 text-base leading-7 text-slate-700">
-          Mira primero los productos que necesitan una reposición.
-        </p>
+        <h1 className="mt-1 page-heading font-bold text-slate-950">Stock</h1>
+        <p className="mt-1 text-sm text-slate-600">Existencias y productos por reponer.</p>
       </section>
 
       {productsNeedingRestock > 0 ? (
@@ -104,7 +103,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
       <section aria-label="Resumen de inventario" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SummaryCard label="Total de productos" value={summary.total} />
         <SummaryCard label="Por reponer" value={productsNeedingRestock} tone="warning" />
-        <SummaryCard label="Stock suficiente" value={summary.normal} tone="success" />
+        <SummaryCard label="Agotados" value={summary.agotados} tone="danger" />
       </section>
 
       <section className="space-y-3" aria-label="Filtros de inventario">
@@ -170,12 +169,13 @@ function SummaryCard({
 }: {
   label: string;
   value: number;
-  tone?: "default" | "warning" | "success";
+  tone?: "default" | "warning" | "success" | "danger";
 }) {
   const styles = {
     default: "border-slate-200 bg-white text-slate-950",
     warning: "border-amber-200 bg-amber-50 text-amber-900",
     success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    danger: "border-red-200 bg-red-50 text-red-900",
   };
 
   return (
@@ -192,39 +192,31 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
   const restockMessage = getRestockMessage(product, status);
 
   return (
-    <article className={`rounded-2xl border bg-white p-5 shadow-sm ${requiresRestock ? "border-amber-300" : "border-slate-200"}`}>
+    <article className={`surface px-3 py-3 sm:p-4 ${requiresRestock ? "border-amber-300" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold text-slate-950">{product.name}</h2>
-          <p className="mt-1 text-base text-slate-600">{product.category || "Sin categoría"}</p>
+          <h2 className="truncate text-base font-bold text-slate-950">{product.name}</h2>
+          <p className="mt-0.5 text-sm text-slate-600">{product.category || "Sin categoría"}</p>
         </div>
         <StatusBadge status={status} />
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
+      <div className="mt-3 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2.5">
         <div>
-          <p className="text-sm text-slate-600">Stock actual</p>
-          <p className="mt-1 text-4xl font-bold text-slate-950">{product.currentStock}</p>
+          <p className="text-[11px] text-slate-600">Stock actual</p>
+            <p className="mt-0.5 text-xl font-bold text-slate-950">{product.currentStock}</p>
         </div>
-        <div>
-          <p className="text-sm text-slate-600">Stock mínimo</p>
-          <p className="mt-1 text-2xl font-bold text-slate-800">{product.minimumStock}</p>
+        <div className="pl-3">
+          <p className="text-[11px] text-slate-600">Stock mínimo</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-800">{product.minimumStock}</p>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-2 flex items-center justify-between gap-2">
         {requiresRestock ? (
-          <div className="rounded-xl bg-amber-50 p-4">
-            <p className="text-base font-semibold text-amber-950">{restockMessage}</p>
-            <Link
-              href={`/movimiento?product=${encodeURIComponent(product.id)}`}
-              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800"
-            >
-              Registrar una entrada
-            </Link>
-          </div>
+          <Link href={`/movimiento?product=${encodeURIComponent(product.id)}`} title={restockMessage} className="inline-flex min-h-9 items-center rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">Registrar entrada</Link>
         ) : null}
         <Link
           href={`/ajustar?product=${encodeURIComponent(product.id)}`}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-50"
+          className="ml-auto inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 hover:bg-slate-50"
         >
           Ajustar stock contado
         </Link>

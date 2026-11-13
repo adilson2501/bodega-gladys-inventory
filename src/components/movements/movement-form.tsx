@@ -17,6 +17,7 @@ import {
 export type MovementProduct = {
   id: string;
   name: string;
+  barcode: string | null;
   currentStock: number;
 };
 
@@ -32,6 +33,7 @@ export function MovementForm({
   const [selectedProductId, setSelectedProductId] = useState(
     initialProduct?.id ?? products[0]?.id ?? "",
   );
+  const [productSearch, setProductSearch] = useState("");
   const [movementType, setMovementType] = useState<(typeof movementTypes)[number]>("IN");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<(typeof movementReasons)[number]>("PURCHASE");
@@ -53,10 +55,16 @@ export function MovementForm({
 
   useEffect(() => {
     if (state?.success) {
+      const resetTransientFields = window.setTimeout(() => {
+        setQuantity("");
+        setProductSearch("");
+        setReason(validReasonsByType[movementType][0]);
+      }, 0);
       router.refresh();
+      return () => window.clearTimeout(resetTransientFields);
     }
     if (state?.staleStock !== undefined) router.refresh();
-  }, [router, state]);
+  }, [movementType, router, state]);
 
   const validReasons = validReasonsByType[movementType];
 
@@ -104,23 +112,12 @@ export function MovementForm({
           <label htmlFor="movement-product" className="mb-2 block text-base font-semibold text-slate-900">
             Producto <span aria-hidden="true">*</span>
           </label>
-          <select
-            id="movement-product"
-            name="productId"
-            value={selectedProductId}
-            onChange={(event) => {
-              setSelectedProductId(event.target.value);
-              rotateKey();
-            }}
-            className="form-input"
-            required
-          >
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
+          <input id="movement-product" type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Buscar por nombre o código" className="form-input" />
+          {productSearch.trim() ? <div className="mt-2 max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
+            {products.filter((product) => product.name.toLocaleLowerCase().includes(productSearch.trim().toLocaleLowerCase())).slice(0, 8).map((product) => <button key={product.id} type="button" onClick={() => { setSelectedProductId(product.id); setProductSearch(""); rotateKey(); }} className="flex min-h-11 w-full items-center justify-between rounded-md px-3 text-left text-sm hover:bg-emerald-50"><span className="font-semibold">{product.name}</span><span className="text-slate-500">{product.currentStock} disp.</span></button>)}
+          </div> : null}
+          <input type="hidden" name="productId" value={selectedProductId} />
+          <div className="mt-2 flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm"><span className="font-semibold text-emerald-950">{selectedProduct?.name ?? "Selecciona un producto"}</span><span className="text-emerald-800">{selectedProduct?.currentStock ?? 0} disponibles</span></div>
 
           <div className="mt-4 rounded-xl bg-slate-100 p-4">
             <p className="text-sm font-semibold text-slate-700">Stock disponible ahora</p>

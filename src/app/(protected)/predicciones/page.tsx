@@ -22,13 +22,13 @@ export default async function PredictionsPage() {
     <div className="space-y-7">
       <section>
         <p className="text-base font-semibold text-emerald-800">Planificación</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Predicciones de demanda</h1>
-        <p className="mt-2 text-base leading-7 text-slate-700">Estimación de unidades para los próximos siete días. No garantiza ventas futuras.</p>
+        <h1 className="mt-1 page-heading font-bold tracking-tight text-slate-950">Predicciones</h1>
+        <p className="mt-1 text-sm text-slate-600">Demanda estimada para los próximos 7 días.</p>
       </section>
 
-      {!artifact ? <div className="rounded-2xl border border-slate-300 bg-white p-5 text-slate-700">No hay un pronóstico importado. Ejecuta el flujo offline de ML para generar `ml/artifacts/forecast.json`.</div> : <ArtifactSummary artifact={artifact} />}
+      {!artifact ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-700">No hay un pronóstico importado. No se mostrarán recomendaciones de reposición.</div> : <ArtifactSummary artifact={artifact} />}
       {presentation.isSynthetic ? <DemoSection demos={presentation.demos} /> : null}
-      {presentation.isSynthetic && metrics ? <MetricsSection metrics={metrics} demos={presentation.demos} /> : null}
+      {presentation.isSynthetic && metrics ? <details className="rounded-xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-bold text-slate-900">Ver métricas y entrenamiento DEMO</summary><div className="mt-4"><MetricsSection metrics={metrics} demos={presentation.demos} /></div></details> : null}
 
       <section className="space-y-3" aria-labelledby="operational-title">
         <div><p className="text-base font-semibold text-emerald-800">Uso operativo</p><h2 id="operational-title" className="mt-1 text-2xl font-bold text-slate-950">Pronósticos del catálogo</h2></div>

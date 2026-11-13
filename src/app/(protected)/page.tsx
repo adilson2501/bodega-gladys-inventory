@@ -53,19 +53,16 @@ export default async function HomePage() {
   const visibleAttentionProducts = attentionProducts.slice(0, 3);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <section>
         <p className="text-base font-semibold text-emerald-800">Inicio</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">¿Qué necesitas hacer ahora?</h1>
-        <p className="mt-2 text-base leading-7 text-slate-700">
-          Aquí verás primero lo más importante para tu bodega.
-        </p>
+        <h1 className="mt-1 page-heading font-bold text-slate-950">Resumen de hoy</h1>
       </section>
 
       {productRows.length === 0 ? (
         <SetupCard />
       ) : (
-        <DailyPriorityCard priorityProduct={priorityProduct} attentionCount={attentionProducts.length} />
+        priorityProduct ? <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">{priorityProduct.status === "AGOTADO" ? `${priorityProduct.name} está agotado.` : `${priorityProduct.name} necesita reposición.`} <Link href={`/movimiento?product=${encodeURIComponent(priorityProduct.id)}`} className="ml-1 underline">Registrar entrada</Link></p> : null
       )}
 
       {visibleAttentionProducts.length > 0 ? (
@@ -82,7 +79,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {visibleAttentionProducts.map((product) => (
               <AttentionCard key={product.id} product={product} />
             ))}
@@ -91,19 +88,19 @@ export default async function HomePage() {
       ) : null}
 
       {productRows.length > 0 ? (
-          <section aria-label="Acciones principales" className="grid gap-3 sm:grid-cols-2">
+          <section aria-label="Acciones principales" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <QuickAction
-            href="/inventario"
-            label="Revisar existencias"
-            description="Mira todos los productos y su stock"
+            href="/ventas"
+            label="Nueva venta"
+            description="Cobrar productos"
           />
           <QuickAction
-            href="/productos"
-            label="Ver productos"
-            description="Agrega o edita productos"
+            href="/compras"
+            label="Nueva compra"
+            description="Abastecer stock"
           />
-          <QuickAction href="/ventas" label="Registrar venta" description="Vende varios productos y cobra" />
-          <QuickAction href="/compras" label="Registrar compra" description="Abastece stock con proveedor" />
+          <QuickAction href="/productos" label="Productos" description="Catálogo y precios" />
+          <QuickAction href="/movimiento" label="Registrar movimiento" description="Entrada o salida" />
         </section>
       ) : null}
 
@@ -150,55 +147,6 @@ function SetupCard() {
         className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 sm:w-auto"
       >
         Agregar producto
-      </Link>
-    </section>
-  );
-}
-
-function DailyPriorityCard({
-  priorityProduct,
-  attentionCount,
-}: {
-  priorityProduct: {
-    id: string;
-    name: string;
-    currentStock: number;
-    status: StockStatus;
-  } | undefined;
-  attentionCount: number;
-}) {
-  if (!priorityProduct) {
-    return (
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
-        <p className="text-lg font-bold">Todo está en orden.</p>
-        <p className="mt-2 text-base leading-6">Por ahora no hay productos que necesiten reposición.</p>
-        <Link
-          href="/movimiento"
-          className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 sm:w-auto"
-        >
-          Registrar entrada o salida
-        </Link>
-      </section>
-    );
-  }
-
-  const isOutOfStock = priorityProduct.status === "AGOTADO";
-
-  return (
-    <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
-      <p className="text-lg font-bold">
-        Hoy debes reponer {attentionCount} producto{attentionCount === 1 ? "" : "s"}.
-      </p>
-      <p className="mt-2 text-base leading-6">
-        {isOutOfStock
-          ? `${priorityProduct.name} está agotado.`
-          : `${priorityProduct.name} tiene solo ${priorityProduct.currentStock} unidades.`}
-      </p>
-      <Link
-        href={`/movimiento?product=${encodeURIComponent(priorityProduct.id)}`}
-        className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-800 px-5 text-base font-bold text-white hover:bg-amber-900 sm:w-auto"
-      >
-        Registrar entrada
       </Link>
     </section>
   );

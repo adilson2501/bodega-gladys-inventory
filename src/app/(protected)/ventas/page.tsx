@@ -11,7 +11,7 @@ export const instant = false;
 export default async function SalesPage() {
   await connection();
   const [productRows, saleRows, itemRows] = await Promise.all([
-    db.select({ id: products.id, name: products.name, sellingPrice: products.sellingPrice, currentStock: products.currentStock, unitOfMeasure: products.unitOfMeasure }).from(products).where(eq(products.isActive, true)).orderBy(asc(products.name)),
+    db.select({ id: products.id, name: products.name, barcode: products.barcode, sellingPrice: products.sellingPrice, currentStock: products.currentStock, unitOfMeasure: products.unitOfMeasure }).from(products).where(eq(products.isActive, true)).orderBy(asc(products.name)),
     db.select().from(sales).orderBy(desc(sales.createdAt)).limit(20),
     db.select().from(saleItems),
   ]);
