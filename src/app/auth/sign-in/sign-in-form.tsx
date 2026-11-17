@@ -1,30 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 import { signIn } from "@/actions/auth";
-import { authClient } from "@/lib/auth/client";
 
 export function SignInForm() {
-  const router = useRouter();
-  const { data: session, isPending: isSessionPending } = authClient.useSession();
   const [state, formAction, isPending] = useActionState(signIn, null);
-
-  useEffect(() => {
-    if (session?.user) {
-      router.replace("/");
-    }
-  }, [router, session]);
-
-  if (isSessionPending || session?.user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-5 py-8">
-        <p className="text-sm text-slate-600">Cargando acceso...</p>
-      </main>
-    );
-  }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-8">

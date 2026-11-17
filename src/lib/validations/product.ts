@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { commercialProductFields } from "./commercial";
+
 const optionalText = z
   .string()
   .trim()
@@ -18,6 +20,10 @@ export const productInputSchema = z.object({
       .int("El stock mínimo debe ser un número entero.")
       .min(0, "El stock mínimo no puede ser negativo."),
   ),
+  sellingPrice: commercialProductFields.sellingPrice,
+  purchaseCost: commercialProductFields.purchaseCost,
+  unitOfMeasure: commercialProductFields.unitOfMeasure.default("UNIT"),
+  isActive: commercialProductFields.isActive,
 });
 
 export const productIdSchema = z.uuid("El producto no es válido.");

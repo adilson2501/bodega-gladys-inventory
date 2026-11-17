@@ -16,7 +16,7 @@ export default async function MovementPage({
   const { product } = await searchParams;
 
   const productRows = await db
-    .select({ id: products.id, name: products.name, currentStock: products.currentStock })
+    .select({ id: products.id, name: products.name, barcode: products.barcode, currentStock: products.currentStock })
     .from(products)
     .orderBy(asc(products.name));
 

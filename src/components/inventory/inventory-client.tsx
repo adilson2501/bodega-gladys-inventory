@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { type InventorySummary } from "@/lib/inventory/inventory-summary";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
+import { productMatchesQuery } from "@/lib/products/search";
 
 export type InventoryListItem = {
   id: string;
   name: string;
   category: string | null;
+  barcode: string | null;
   currentStock: number;
   minimumStock: number;
 };
@@ -17,32 +19,46 @@ export type InventoryListItem = {
 type InventoryClientProps = {
   products: InventoryListItem[];
   summary: InventorySummary;
+  showAdjustmentSuccess?: boolean;
 };
 
-type StatusFilter = "TODOS" | "POR_REPONER";
+type StatusFilter = "TODOS" | "POR_REPONER" | "AGOTADO";
 
 const filters: { value: StatusFilter; label: string }[] = [
   { value: "TODOS", label: "Todos" },
   { value: "POR_REPONER", label: "Por reponer" },
+  { value: "AGOTADO", label: "Agotados" },
 ];
 
-export function InventoryClient({ products, summary }: InventoryClientProps) {
+export function InventoryClient({ products, summary, showAdjustmentSuccess = false }: InventoryClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("TODOS");
+  const [showSuccess, setShowSuccess] = useState(showAdjustmentSuccess);
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const productsNeedingRestock = summary.agotados + summary.stockBajo;
+
+  useEffect(() => {
+    if (!showAdjustmentSuccess) return;
+    window.history.replaceState(window.history.state, "", "/inventario");
+  }, [showAdjustmentSuccess]);
+
+  useEffect(() => {
+    if (!showSuccess) return;
+    const dismissTimer = window.setTimeout(() => setShowSuccess(false), 4000);
+    return () => window.clearTimeout(dismissTimer);
+  }, [showSuccess]);
+
   const visibleProducts = useMemo(
     () =>
       products
         .filter((product) => {
           const matchesSearch =
             !normalizedQuery ||
-            product.name.toLocaleLowerCase().includes(normalizedQuery) ||
-            product.category?.toLocaleLowerCase().includes(normalizedQuery);
+            productMatchesQuery(product, normalizedQuery);
 
           return (
             matchesSearch &&
-            (selectedStatus === "TODOS" || needsRestock(product.currentStock, product.minimumStock))
+            (selectedStatus === "TODOS" || (selectedStatus === "POR_REPONER" && needsRestock(product.currentStock, product.minimumStock)) || getStockStatus(product.currentStock, product.minimumStock) === selectedStatus)
           );
         })
         .sort((firstProduct, secondProduct) => {
@@ -56,58 +72,60 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       <section>
-        <p className="text-base font-semibold text-emerald-800">Stock</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Revisa qué falta</h1>
-        <p className="mt-2 text-base leading-7 text-slate-700">
-          Mira primero los productos que necesitan una reposición.
-        </p>
+        <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Stock</h1>
       </section>
+
+      {showSuccess ? (
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-4 text-base font-semibold text-emerald-900">
+          Stock ajustado correctamente.
+        </p>
+      ) : null}
 
       {productsNeedingRestock > 0 ? (
         <section
           aria-label="Alerta de reposición"
-          className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950"
         >
-          <p className="text-lg font-bold">Hay {productsNeedingRestock} producto{productsNeedingRestock === 1 ? "" : "s"} por reponer.</p>
-          <p className="mt-2 text-base leading-6">
+          <p className="text-sm font-bold">Hay {productsNeedingRestock} producto{productsNeedingRestock === 1 ? "" : "s"} por reponer.</p>
+          <p className="mt-0.5 text-[13px] leading-5">
             {summary.agotados > 0 && summary.stockBajo > 0
               ? `${summary.agotados} agotado${summary.agotados === 1 ? "" : "s"} y ${summary.stockBajo} con stock bajo.`
               : summary.agotados > 0
                 ? `${summary.agotados} producto${summary.agotados === 1 ? " está agotado" : "s están agotados"}.`
                 : "Tienen pocas unidades disponibles."}
           </p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setSelectedStatus("POR_REPONER")}
-              className="min-h-12 rounded-xl bg-amber-800 px-5 text-base font-bold text-white hover:bg-amber-900"
+              className="min-h-10 rounded-lg bg-amber-800 px-3 text-sm font-bold text-white hover:bg-amber-900"
             >
               Ver productos por reponer
             </button>
             <Link
               href="/movimiento"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-amber-800 px-5 text-base font-bold text-amber-950 hover:bg-amber-100"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-800 px-3 text-sm font-bold text-amber-950 hover:bg-amber-100"
             >
               Registrar una entrada
             </Link>
           </div>
         </section>
       ) : products.length > 0 ? (
-        <section aria-label="Inventario al día" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
-          <p className="text-lg font-bold">Todo está en orden.</p>
-          <p className="mt-2 text-base leading-6">No hay productos que necesiten reposición por ahora.</p>
+        <section aria-label="Inventario al día" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950">
+          <p className="text-sm font-bold">Todo está en orden.</p>
+          <p className="mt-0.5 text-[13px] leading-5">No hay productos que necesiten reposición por ahora.</p>
         </section>
       ) : null}
 
-      <section aria-label="Resumen de inventario" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <SummaryCard label="Total de productos" value={summary.total} />
+      <section aria-label="Resumen de inventario" className="grid grid-cols-3 gap-2">
+        <SummaryCard label="Total" value={summary.total} />
         <SummaryCard label="Por reponer" value={productsNeedingRestock} tone="warning" />
-        <SummaryCard label="Stock suficiente" value={summary.normal} tone="success" />
+        <SummaryCard label="Agotados" value={summary.agotados} tone="danger" />
       </section>
 
-      <section className="space-y-3" aria-label="Filtros de inventario">
+      <section className="space-y-2" aria-label="Filtros de inventario">
         <label htmlFor="inventory-search" className="sr-only">
           Buscar productos
         </label>
@@ -117,7 +135,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Buscar producto"
-          className="min-h-14 w-full rounded-xl border border-slate-300 bg-white px-4 text-lg text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por estado">
           {filters.map((filter) => (
@@ -126,7 +144,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
               type="button"
               aria-pressed={selectedStatus === filter.value}
               onClick={() => setSelectedStatus(filter.value)}
-              className={`min-h-12 shrink-0 rounded-xl px-5 text-base font-bold transition ${
+                className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold transition ${
                 selectedStatus === filter.value
                   ? "bg-emerald-800 text-white"
                   : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
@@ -140,7 +158,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
 
       {visibleProducts.length > 0 ? (
         <section id="inventory-list" className="space-y-3" aria-label="Lista de inventario">
-          <h2 className="text-xl font-bold text-slate-950">
+          <h2 className="text-[15px] font-bold text-slate-950">
             {selectedStatus === "POR_REPONER" ? "Productos por reponer" : "Todos los productos"}
           </h2>
           {visibleProducts.map((product) => (
@@ -155,7 +173,7 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
       )}
 
       {products.length > 0 ? (
-        <p className="rounded-xl bg-slate-100 px-4 py-4 text-base text-slate-700">
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-[13px] text-slate-700">
           El stock cambia cuando registras una entrada o salida.
         </p>
       ) : null}
@@ -170,18 +188,19 @@ function SummaryCard({
 }: {
   label: string;
   value: number;
-  tone?: "default" | "warning" | "success";
+  tone?: "default" | "warning" | "success" | "danger";
 }) {
   const styles = {
     default: "border-slate-200 bg-white text-slate-950",
     warning: "border-amber-200 bg-amber-50 text-amber-900",
     success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    danger: "border-red-200 bg-red-50 text-red-900",
   };
 
   return (
-    <article className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${styles[tone]}`}>
-      <p className="text-sm leading-5">{label}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
+    <article className={`rounded-lg border px-2 py-2 shadow-sm sm:px-3 ${styles[tone]}`}>
+      <p className="truncate text-[12px] leading-4">{label}</p>
+      <p className="mt-0.5 text-xl font-bold">{value}</p>
     </article>
   );
 }
@@ -192,39 +211,31 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
   const restockMessage = getRestockMessage(product, status);
 
   return (
-    <article className={`rounded-2xl border bg-white p-5 shadow-sm ${requiresRestock ? "border-amber-300" : "border-slate-200"}`}>
+    <article className={`surface px-3 py-2.5 sm:p-3 ${requiresRestock ? "border-amber-300" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold text-slate-950">{product.name}</h2>
-          <p className="mt-1 text-base text-slate-600">{product.category || "Sin categoría"}</p>
+          <h2 className="truncate text-base font-bold text-slate-950">{product.name}</h2>
+          <p className="mt-0.5 text-sm text-slate-600">{product.category || "Sin categoría"}</p>
         </div>
         <StatusBadge status={status} />
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
+      <div className="mt-2 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 px-2 py-2">
         <div>
-          <p className="text-sm text-slate-600">Stock actual</p>
-          <p className="mt-1 text-4xl font-bold text-slate-950">{product.currentStock}</p>
+          <p className="text-[11px] text-slate-600">Stock actual</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-950">{product.currentStock}</p>
         </div>
-        <div>
-          <p className="text-sm text-slate-600">Stock mínimo</p>
-          <p className="mt-1 text-2xl font-bold text-slate-800">{product.minimumStock}</p>
+        <div className="pl-3">
+          <p className="text-[11px] text-slate-600">Stock mínimo</p>
+            <p className="mt-0.5 text-base font-bold text-slate-800">{product.minimumStock}</p>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-2 flex items-center justify-between gap-2">
         {requiresRestock ? (
-          <div className="rounded-xl bg-amber-50 p-4">
-            <p className="text-base font-semibold text-amber-950">{restockMessage}</p>
-            <Link
-              href={`/movimiento?product=${encodeURIComponent(product.id)}`}
-              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800"
-            >
-              Registrar una entrada
-            </Link>
-          </div>
+          <Link href={`/movimiento?product=${encodeURIComponent(product.id)}`} title={restockMessage} className="inline-flex min-h-9 items-center rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">Registrar entrada</Link>
         ) : null}
         <Link
           href={`/ajustar?product=${encodeURIComponent(product.id)}`}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-50"
+          className="ml-auto inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 hover:bg-slate-50"
         >
           Ajustar stock contado
         </Link>
@@ -241,7 +252,7 @@ function StatusBadge({ status }: { status: StockStatus }) {
   } satisfies Record<StockStatus, string>;
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${styles[status]}`}>
+    <span className={`shrink-0 rounded-md px-2 py-1 text-[12px] font-bold ${styles[status]}`}>
       {status}
     </span>
   );
