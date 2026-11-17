@@ -21,7 +21,7 @@ vi.mock("next/server", async (importOriginal) => ({
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
-import { createMovement } from "../../src/actions/movements";
+import { adjustStock, createMovement } from "../../src/actions/movements";
 import { createPurchase } from "../../src/actions/purchases";
 import { createSale } from "../../src/actions/sales";
 import { GET as exportSales } from "../../src/app/api/export/sales/route";
@@ -48,6 +48,17 @@ function movementForm(input: {
   type: string;
   quantity: number;
   reason: string;
+  idempotencyKey: string;
+  expectedStock: number;
+}) {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(input)) formData.set(key, String(value));
+  return formData;
+}
+
+function adjustmentForm(input: {
+  productId: string;
+  actualStock: number;
   idempotencyKey: string;
   expectedStock: number;
 }) {
@@ -192,6 +203,31 @@ afterAll(async () => {
 });
 
 describe("Inventory Increment 1A en staging", () => {
+  it("ajusta únicamente el producto enviado y conserva su historial asociado", async () => {
+    const untouchedProductId = await createDisposableProduct(10);
+    const selectedProductId = await createDisposableProduct(20);
+
+    const result = await adjustStock(null, adjustmentForm({
+      productId: selectedProductId,
+      actualStock: 17,
+      idempotencyKey: randomUUID(),
+      expectedStock: 20,
+    }));
+
+    expect(result).toMatchObject({ success: expect.any(String), resultingStock: 17 });
+    await expect(getProduct(untouchedProductId)).resolves.toEqual({ currentStock: 10 });
+    await expect(getProduct(selectedProductId)).resolves.toEqual({ currentStock: 17 });
+    await expect(getMovements(untouchedProductId)).resolves.toHaveLength(0);
+    await expect(getMovements(selectedProductId)).resolves.toEqual([{
+      type: "OUT",
+      reason: "ADJUSTMENT",
+      quantity: 3,
+      previousStock: 20,
+      resultingStock: 17,
+      idempotencyKey: expect.any(String),
+    }]);
+  });
+
   it("registra una entrada y conserva stock e historial", async () => {
     const productId = await createDisposableProduct();
     const result = await createMovement(null, movementForm({

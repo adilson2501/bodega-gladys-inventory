@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { adjustStock, type MovementActionState } from "@/actions/movements";
 import { useIdempotencyKey } from "@/lib/inventory/use-idempotency-key";
+import { resolveStockAdjustmentProductId } from "@/lib/inventory/stock-adjustment-selection";
 
 export type AdjustmentProduct = {
   id: string;
@@ -21,30 +22,40 @@ export function StockAdjustmentForm({
   initialProductId?: string;
 }) {
   const router = useRouter();
-  const initialProduct = products.find((product) => product.id === initialProductId);
   const [selectedProductId, setSelectedProductId] = useState(
-    initialProduct?.id ?? products[0]?.id ?? "",
+    resolveStockAdjustmentProductId(products, initialProductId),
   );
   const [actualStock, setActualStock] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [dismissedState, setDismissedState] = useState<MovementActionState | null>(null);
+  const hasSubmittedRef = useRef(false);
   const { inputRef: idempotencyInputRef, ensureKey, rotateKey } = useIdempotencyKey();
   const [state, formAction, isPending] = useActionState<MovementActionState, FormData>(adjustStock, null);
   const selectedProduct = products.find((product) => product.id === selectedProductId);
-  const numericActualStock = Number(actualStock);
+  const parsedActualStock = actualStock.trim() === "" ? null : Number(actualStock);
   const hasValidActualStock =
-    actualStock.trim() !== "" && Number.isInteger(numericActualStock) && numericActualStock >= 0;
-  const difference = hasValidActualStock
-    ? numericActualStock - (selectedProduct?.currentStock ?? 0)
+    parsedActualStock !== null && Number.isInteger(parsedActualStock) && parsedActualStock >= 0;
+  const difference = selectedProduct && hasValidActualStock && parsedActualStock !== null
+    ? parsedActualStock - (selectedProduct?.currentStock ?? 0)
     : null;
   const stockMatches = difference === 0;
   const isEntry = difference !== null && difference > 0;
 
   useEffect(() => {
-    if (state?.success) {
-      router.refresh();
+    if (state?.success && hasSubmittedRef.current) {
+      hasSubmittedRef.current = false;
+      router.replace("/inventario?adjustment=success");
     }
     if (state?.staleStock !== undefined) router.refresh();
   }, [router, state]);
+
+  function resetProductState() {
+    setActualStock("");
+    setIsConfirmed(false);
+    setDismissedState(state);
+    hasSubmittedRef.current = false;
+    rotateKey();
+  }
 
   if (products.length === 0) {
     return (
@@ -73,15 +84,19 @@ export function StockAdjustmentForm({
         </p>
       </section>
 
-      {state?.success ? (
-        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-4 text-base font-semibold text-emerald-900">
-          {state.success}
-        </p>
-      ) : null}
+      <Link
+        href="/inventario"
+        className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
+      >
+        Volver a Stock
+      </Link>
 
       <form
         action={formAction}
-        onSubmit={ensureKey}
+        onSubmit={() => {
+          hasSubmittedRef.current = true;
+          ensureKey();
+        }}
         className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
       >
         <section className="border-b border-slate-200 pb-6">
@@ -92,14 +107,17 @@ export function StockAdjustmentForm({
             id="adjustment-product"
             name="productId"
             value={selectedProductId}
+            required
+            disabled={isPending}
             onChange={(event) => {
               setSelectedProductId(event.target.value);
-              setActualStock("");
-              setIsConfirmed(false);
-              rotateKey();
+              resetProductState();
             }}
             className="form-input"
           >
+            <option value="" disabled>
+              Selecciona un producto
+            </option>
             {products.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name}
@@ -107,10 +125,12 @@ export function StockAdjustmentForm({
             ))}
           </select>
 
-          <div className="mt-4 rounded-xl bg-slate-100 p-4">
-            <p className="text-sm font-semibold text-slate-700">Stock registrado ahora</p>
-            <p className="mt-1 text-4xl font-bold text-slate-950">{selectedProduct?.currentStock ?? 0}</p>
-          </div>
+          {selectedProduct ? (
+            <div className="mt-4 rounded-xl bg-slate-100 p-4">
+              <p className="text-sm font-semibold text-slate-700">Stock registrado ahora</p>
+              <p className="mt-1 text-4xl font-bold text-slate-950">{selectedProduct.currentStock}</p>
+            </div>
+          ) : null}
         </section>
 
         <section>
@@ -125,6 +145,7 @@ export function StockAdjustmentForm({
             step="1"
             inputMode="numeric"
             value={actualStock}
+            disabled={isPending}
             onChange={(event) => {
               setActualStock(event.target.value);
               setIsConfirmed(false);
@@ -139,7 +160,7 @@ export function StockAdjustmentForm({
         </section>
 
         <input ref={idempotencyInputRef} type="hidden" name="idempotencyKey" defaultValue="" />
-        <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? 0} />
+        <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? ""} />
 
         {difference !== null ? (
           <section
@@ -164,7 +185,7 @@ export function StockAdjustmentForm({
                   Se registrará una {isEntry ? "entrada" : "salida"} por ajuste de {Math.abs(difference)} unidades.
                 </p>
                 <p className="mt-2 text-3xl font-bold">
-                  {selectedProduct?.currentStock ?? 0} → {numericActualStock}
+                  {selectedProduct?.currentStock ?? 0} → {actualStock}
                 </p>
               </>
             )}
@@ -176,6 +197,7 @@ export function StockAdjustmentForm({
             <input
               type="checkbox"
               checked={isConfirmed}
+              disabled={isPending}
               onChange={(event) => setIsConfirmed(event.target.checked)}
               className="mt-1 h-5 w-5 accent-emerald-700"
             />
@@ -183,7 +205,7 @@ export function StockAdjustmentForm({
           </label>
         ) : null}
 
-        {state?.error ? (
+        {state?.error && dismissedState !== state ? (
           <p role="alert" className="rounded-xl bg-red-50 px-4 py-4 text-base text-red-900">
             {state.error}
           </p>
@@ -191,7 +213,7 @@ export function StockAdjustmentForm({
 
         <button
           type="submit"
-          disabled={isPending || !hasValidActualStock || stockMatches || !isConfirmed}
+          disabled={isPending || !selectedProduct || !hasValidActualStock || stockMatches || !isConfirmed}
           className="min-h-14 w-full rounded-xl bg-emerald-700 px-5 text-base font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Guardando ajuste..." : "Confirmar y guardar ajuste"}

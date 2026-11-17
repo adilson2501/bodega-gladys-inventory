@@ -21,11 +21,13 @@ export default async function StockAdjustmentPage({
     .orderBy(asc(products.name));
 
   const productList: AdjustmentProduct[] = productRows;
+  const initialProductId = typeof product === "string" ? product : undefined;
 
   return (
     <StockAdjustmentForm
+      key={initialProductId ?? "no-product"}
       products={productList}
-      initialProductId={typeof product === "string" ? product : undefined}
+      initialProductId={initialProductId}
     />
   );
 }

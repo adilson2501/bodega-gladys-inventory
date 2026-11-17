@@ -18,6 +18,7 @@ import {
 } from "../src/lib/inventory/movement-rules";
 import { createRequestFingerprint } from "../src/lib/inventory/idempotency";
 import { createIdempotencyKeyLifecycle } from "../src/lib/inventory/idempotency-key-lifecycle";
+import { resolveStockAdjustmentProductId } from "../src/lib/inventory/stock-adjustment-selection";
 import { productInputSchema } from "../src/lib/validations/product";
 
 describe("stock status", () => {
@@ -141,13 +142,37 @@ describe("movement rules", () => {
     expect(() => calculateStockAdjustment(4, 4)).toThrow("El stock real ya coincide con el stock registrado.");
   });
 
+  const validAdjustmentInput = {
+    productId: "550e8400-e29b-41d4-a716-446655440000",
+    idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+    expectedStock: "4",
+  };
+
   it.each(["-1", "1.5", ""])("rejects invalid actual stock %s", (actualStock) => {
     const result = stockAdjustmentInputSchema.safeParse({
-      productId: "550e8400-e29b-41d4-a716-446655440000",
+      ...validAdjustmentInput,
       actualStock,
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts zero as actual stock", () => {
+    const result = stockAdjustmentInputSchema.safeParse({
+      ...validAdjustmentInput,
+      actualStock: "0",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("resolves only requested stock adjustment products", () => {
+    const products = [{ id: "product-a" }, { id: "product-b" }];
+
+    expect(resolveStockAdjustmentProductId(products, "product-a")).toBe("product-a");
+    expect(resolveStockAdjustmentProductId(products, "product-b")).toBe("product-b");
+    expect(resolveStockAdjustmentProductId(products)).toBe("");
+    expect(resolveStockAdjustmentProductId(products, "invalid-product")).toBe("");
   });
 
   it("creates stable fingerprints for equivalent normalized input", () => {

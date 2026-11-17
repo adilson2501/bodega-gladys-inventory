@@ -8,8 +8,13 @@ import { getInventorySummary } from "@/lib/inventory/inventory-summary";
 
 export const instant = false;
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ adjustment?: string | string[] }>;
+}) {
   await connection();
+  const { adjustment } = await searchParams;
 
   const productRows = await db
     .select({
@@ -25,5 +30,11 @@ export default async function InventoryPage() {
 
   const productList: InventoryListItem[] = productRows;
 
-  return <InventoryClient products={productList} summary={getInventorySummary(productList)} />;
+  return (
+    <InventoryClient
+      products={productList}
+      summary={getInventorySummary(productList)}
+      showAdjustmentSuccess={adjustment === "success"}
+    />
+  );
 }

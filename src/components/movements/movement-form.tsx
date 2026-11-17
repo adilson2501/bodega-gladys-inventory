@@ -31,9 +31,7 @@ export function MovementForm({
 }) {
   const router = useRouter();
   const initialProduct = products.find((product) => product.id === initialProductId);
-  const [selectedProductId, setSelectedProductId] = useState(
-    initialProduct?.id ?? products[0]?.id ?? "",
-  );
+  const [selectedProductId, setSelectedProductId] = useState(initialProduct?.id ?? "");
   const [productSearch, setProductSearch] = useState("");
   const [scanMessage, setScanMessage] = useState("");
   const [movementType, setMovementType] = useState<(typeof movementTypes)[number]>("IN");
@@ -44,26 +42,33 @@ export function MovementForm({
     createMovement,
     null,
   );
+  const [dismissedSuccessState, setDismissedSuccessState] = useState<MovementActionState | null>(null);
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const numericQuantity = Number(quantity);
   const hasValidQuantity = Number.isInteger(numericQuantity) && numericQuantity > 0;
   const wouldExceedStock =
     movementType === "OUT" && hasValidQuantity && numericQuantity > (selectedProduct?.currentStock ?? 0);
-  const resultingStock = hasValidQuantity
+  const resultingStock = selectedProduct && hasValidQuantity
     ? movementType === "IN"
-      ? (selectedProduct?.currentStock ?? 0) + numericQuantity
-      : Math.max(0, (selectedProduct?.currentStock ?? 0) - numericQuantity)
+      ? selectedProduct.currentStock + numericQuantity
+      : Math.max(0, selectedProduct.currentStock - numericQuantity)
     : null;
 
   useEffect(() => {
     if (state?.success) {
       const resetTransientFields = window.setTimeout(() => {
+        setSelectedProductId("");
         setQuantity("");
         setProductSearch("");
+        setScanMessage("");
         setReason(validReasonsByType[movementType][0]);
       }, 0);
+      const dismissTimer = window.setTimeout(() => setDismissedSuccessState(state), 4000);
       router.refresh();
-      return () => window.clearTimeout(resetTransientFields);
+      return () => {
+        window.clearTimeout(resetTransientFields);
+        window.clearTimeout(dismissTimer);
+      };
     }
     if (state?.staleStock !== undefined) router.refresh();
   }, [movementType, router, state]);
@@ -106,7 +111,7 @@ export function MovementForm({
     <div className="space-y-4">
       <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Entrada o salida</h1>
 
-      {state?.success ? (
+      {state?.success && dismissedSuccessState !== state ? (
         <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
           {state.success}
         </p>
@@ -127,13 +132,17 @@ export function MovementForm({
              {searchProducts(products, productSearch).length === 0 ? <p className="px-3 py-2 text-sm text-slate-600">No encontramos productos.</p> : null}
            </div> : null}
            {scanMessage ? <p role="status" className="mt-1 text-xs text-slate-600">{scanMessage}</p> : null}
-          <input type="hidden" name="productId" value={selectedProductId} />
-           <div className="mt-2 flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm"><span className="truncate font-semibold text-emerald-950">{selectedProduct?.name ?? "Selecciona un producto"}</span><span className="shrink-0 text-emerald-800">{selectedProduct?.currentStock ?? 0} disponibles</span></div>
+           <input type="hidden" name="productId" value={selectedProductId} />
+            {selectedProduct ? (
+              <>
+                <div className="mt-2 flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm"><span className="truncate font-semibold text-emerald-950">{selectedProduct.name}</span><span className="shrink-0 text-emerald-800">{selectedProduct.currentStock} disponibles</span></div>
 
-           <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2">
-             <p className="text-sm font-semibold text-slate-700">Stock disponible</p>
-             <p className="text-xl font-bold text-slate-950">{selectedProduct?.currentStock ?? 0}</p>
-           </div>
+                <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-700">Stock disponible</p>
+                  <p className="text-xl font-bold text-slate-950">{selectedProduct.currentStock}</p>
+                </div>
+              </>
+            ) : null}
         </FormStep>
 
         <FormStep title="Tipo de movimiento">
@@ -220,7 +229,7 @@ export function MovementForm({
         </FormStep>
 
         <input ref={idempotencyInputRef} type="hidden" name="idempotencyKey" defaultValue="" />
-        <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? 0} />
+         <input type="hidden" name="expectedStock" value={selectedProduct?.currentStock ?? ""} />
 
         {resultingStock !== null ? (
           <section
@@ -258,7 +267,7 @@ export function MovementForm({
 
         <button
           type="submit"
-          disabled={isPending || wouldExceedStock}
+          disabled={isPending || !selectedProduct || wouldExceedStock}
           className="min-h-12 w-full rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Guardando..." : "Guardar movimiento"}

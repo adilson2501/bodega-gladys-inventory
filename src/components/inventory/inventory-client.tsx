@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { type InventorySummary } from "@/lib/inventory/inventory-summary";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
@@ -19,6 +19,7 @@ export type InventoryListItem = {
 type InventoryClientProps = {
   products: InventoryListItem[];
   summary: InventorySummary;
+  showAdjustmentSuccess?: boolean;
 };
 
 type StatusFilter = "TODOS" | "POR_REPONER" | "AGOTADO";
@@ -29,11 +30,24 @@ const filters: { value: StatusFilter; label: string }[] = [
   { value: "AGOTADO", label: "Agotados" },
 ];
 
-export function InventoryClient({ products, summary }: InventoryClientProps) {
+export function InventoryClient({ products, summary, showAdjustmentSuccess = false }: InventoryClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("TODOS");
+  const [showSuccess, setShowSuccess] = useState(showAdjustmentSuccess);
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const productsNeedingRestock = summary.agotados + summary.stockBajo;
+
+  useEffect(() => {
+    if (!showAdjustmentSuccess) return;
+    window.history.replaceState(window.history.state, "", "/inventario");
+  }, [showAdjustmentSuccess]);
+
+  useEffect(() => {
+    if (!showSuccess) return;
+    const dismissTimer = window.setTimeout(() => setShowSuccess(false), 4000);
+    return () => window.clearTimeout(dismissTimer);
+  }, [showSuccess]);
+
   const visibleProducts = useMemo(
     () =>
       products
@@ -62,6 +76,12 @@ export function InventoryClient({ products, summary }: InventoryClientProps) {
       <section>
         <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Stock</h1>
       </section>
+
+      {showSuccess ? (
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-4 text-base font-semibold text-emerald-900">
+          Stock ajustado correctamente.
+        </p>
+      ) : null}
 
       {productsNeedingRestock > 0 ? (
         <section
