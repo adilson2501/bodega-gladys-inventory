@@ -18,7 +18,7 @@ Este repositorio no contiene todavía una exportación real con suficiente histo
 
 ## Pronóstico y límites
 
-El artefacto JSON versionado contiene origen, fechas, esquema de variables, evaluación y pronóstico de siete días por producto. Next.js valida su forma y cruza únicamente IDs de productos existentes. La reposición es `max(0, ceil(demanda_7d + stock_seguridad - stock_actual))`; no crea compras ni altera stock. Se necesita más historia real, validación fuera de muestra y seguimiento de error antes de usarlo como política automática.
+El artefacto JSON versionado contiene origen, fechas, esquema de variables, evaluación y pronóstico de siete días por producto. Next.js valida su forma y cruza únicamente IDs de productos existentes. La reposición es `max(0, ceil(demanda_7d + stock_seguridad - stock_actual))`; no crea compras ni altera stock. La simulación de Fase A cubre únicamente del `2026-08-01` al `2026-10-31` (92 días): sirve para evaluar producto-día y el flujo, pero no permite aprender ni afirmar estacionalidad anual. Se necesita más historia real, validación fuera de muestra y seguimiento de error antes de usarlo como política automática.
 
 ## Evidencia pendiente
 

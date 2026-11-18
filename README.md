@@ -99,3 +99,10 @@ npm run ml:test
 ```
 
 Consulta `ml/README.md` y `docs/APF3-ML.md` para supuestos, métricas, límites y el modo sintético claramente marcado como DEMO.
+
+La especificación vigente de catálogo y reglas de simulación de Fase A está en
+`docs/phase-a-simulation.md`. Su periodo es exclusivamente del 1 de agosto al 31
+de octubre de 2026; aún no contiene transacciones generadas.
+
+La simulación comercial local de Fase B, sus comandos y validaciones están
+documentados en `docs/phase-b-simulation.md`.
