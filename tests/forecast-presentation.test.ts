@@ -8,8 +8,8 @@ const syntheticArtifact = {
   generated_at: "2026-11-11T19:19:29.877105+00:00",
   source: "SYNTHETIC",
   model_type: "RandomForestRegressor",
-  training_date_start: "2025-01-01",
-  training_date_end: "2025-03-11",
+  training_date_start: "2026-08-01",
+  training_date_end: "2026-10-31",
   evaluation_method: "cronológico",
   rows: [{ product_id: "00000000-0000-4000-8000-000000000001", forecast_7d: 63.64, status: "DEMO", model: "RandomForestRegressor" }],
 } satisfies ForecastArtifact;

@@ -60,10 +60,10 @@ def fit_product(rows):
 
 def synthetic_rows():
     random.seed(SEED)
-    start = date(2025, 1, 1)
+    start = date(2026, 8, 1)
     rows = []
     for product, base in [("00000000-0000-4000-8000-000000000001", 8), ("00000000-0000-4000-8000-000000000002", 3)]:
-        for offset in range(70):
+        for offset in range(92):
             rows.append({"date": (start + timedelta(days=offset)).isoformat(), "product_id": product, "quantity": max(0, base + (offset % 7 == 2) * 3 + random.randint(0, 2)), "source": "SYNTHETIC"})
     return rows
 
