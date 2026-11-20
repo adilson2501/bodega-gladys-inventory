@@ -5,9 +5,13 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { inventoryMovements, products, purchaseItems, purchases, suppliers } from "@/db/schema";
-import { getAuth } from "@/lib/auth/server";
-import { getInventoryActor } from "@/lib/auth/actor";
-import { centsToMoney, parseMoneyToCents } from "@/lib/commercial/money";
+import {
+  getAuthorizationErrorMessage,
+  requirePermission,
+  type CurrentActor,
+} from "@/lib/auth/authorization";
+import { addCents, centsToMoney, multiplyCents, parseMoneyToCents } from "@/lib/commercial/money";
+import { createCommercialFingerprint } from "@/lib/inventory/idempotency";
 import { purchaseInputSchema } from "@/lib/validations/commercial";
 
 export type PurchaseActionState = { error?: string; success?: string; purchaseId?: string } | null;
@@ -18,9 +22,12 @@ function formValue(formData: FormData, key: string) {
 }
 
 export async function createPurchase(_previousState: PurchaseActionState, formData: FormData): Promise<PurchaseActionState> {
-  const { data: session } = await getAuth().getSession();
-  const actor = getInventoryActor(session);
-  if (!actor) return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  let actor: CurrentActor;
+  try {
+    actor = await requirePermission("purchases:create");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
+  }
 
   let items: unknown;
   try {
@@ -34,8 +41,12 @@ export async function createPurchase(_previousState: PurchaseActionState, formDa
 
   try {
     const operation = await db.transaction(async (tx) => {
-      const existing = await tx.select({ id: purchases.id }).from(purchases).where(eq(purchases.idempotencyKey, parsed.data.idempotencyKey));
-      if (existing[0]) return { id: existing[0].id, duplicate: true };
+      const fingerprint = createCommercialFingerprint({ type: "purchase", supplierName: parsed.data.supplierName, items: parsed.data.items });
+      const existing = await tx.select({ id: purchases.id, requestFingerprint: purchases.requestFingerprint }).from(purchases).where(eq(purchases.idempotencyKey, parsed.data.idempotencyKey));
+      if (existing[0]) {
+        if (existing[0].requestFingerprint && existing[0].requestFingerprint !== fingerprint) throw new Error("La clave de idempotencia ya fue utilizada con otra compra.");
+        return { id: existing[0].id, duplicate: true };
+      }
 
       const supplierRows = await tx.select().from(suppliers).where(eq(suppliers.name, parsed.data.supplierName));
       let supplier = supplierRows[0];
@@ -48,27 +59,30 @@ export async function createPurchase(_previousState: PurchaseActionState, formDa
       const lockedProducts = [];
       for (const item of sortedItems) {
         const rows = await tx.select().from(products).where(eq(products.id, item.productId)).for("update");
-        if (!rows[0]) throw new Error("Uno de los productos no existe.");
-        lockedProducts.push({ item, product: rows[0] });
-      }
-      const totalCents = parsed.data.items.reduce((total, item) => total + parseMoneyToCents(item.unitCost) * item.quantity, 0);
+         if (!rows[0] || !rows[0].isActive) throw new Error("Uno de los productos no está disponible.");
+         parseMoneyToCents(item.unitCost);
+         lockedProducts.push({ item, product: rows[0] });
+       }
+       const totalCents = lockedProducts.reduce((total, { item }) => addCents(total, multiplyCents(parseMoneyToCents(item.unitCost), item.quantity)), 0);
       const inserted = await tx.insert(purchases).values({
         supplierId: supplier?.id ?? null,
         supplierName: parsed.data.supplierName,
         subtotal: centsToMoney(totalCents),
         total: centsToMoney(totalCents),
-        idempotencyKey: parsed.data.idempotencyKey,
+         idempotencyKey: parsed.data.idempotencyKey,
+         requestFingerprint: fingerprint,
         actorId: actor.id,
         actorEmail: actor.email,
       }).onConflictDoNothing({ target: purchases.idempotencyKey }).returning({ id: purchases.id });
       if (!inserted[0]) {
-        const raced = await tx.select({ id: purchases.id }).from(purchases).where(eq(purchases.idempotencyKey, parsed.data.idempotencyKey));
-        if (!raced[0]) throw new Error("No se pudo recuperar la compra idempotente.");
+         const raced = await tx.select({ id: purchases.id, requestFingerprint: purchases.requestFingerprint }).from(purchases).where(eq(purchases.idempotencyKey, parsed.data.idempotencyKey));
+         if (!raced[0]) throw new Error("No se pudo recuperar la compra idempotente.");
+         if (raced[0].requestFingerprint && raced[0].requestFingerprint !== fingerprint) throw new Error("La clave de idempotencia ya fue utilizada con otra compra.");
         return { id: raced[0].id, duplicate: true };
       }
       for (const { item, product } of lockedProducts) {
         const cost = centsToMoney(parseMoneyToCents(item.unitCost));
-        const lineTotal = centsToMoney(parseMoneyToCents(item.unitCost) * item.quantity);
+         const lineTotal = centsToMoney(multiplyCents(parseMoneyToCents(item.unitCost), item.quantity));
         const resultingStock = product.currentStock + item.quantity;
         await tx.insert(purchaseItems).values({ purchaseId: inserted[0].id, productId: product.id, productName: product.name, quantity: item.quantity, unitCost: cost, lineTotal });
         await tx.insert(inventoryMovements).values({

@@ -35,9 +35,10 @@ export type ProductListItem = {
 type ProductsClientProps = {
   products: ProductListItem[];
   searchQuery: string;
+  canManage: boolean;
 };
 
-export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
+export function ProductsClient({ products, searchQuery, canManage }: ProductsClientProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
   const [notice, setNotice] = useState("");
@@ -67,7 +68,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
     <div className="space-y-4 sm:space-y-5">
       <section className="flex items-center justify-between gap-3">
         <h1 className="text-[21px] font-bold leading-6 tracking-tight text-slate-950">Productos</h1>
-        <button
+        {canManage ? <button
           type="button"
           onClick={() => {
             setNotice("");
@@ -77,7 +78,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           className="min-h-11 shrink-0 rounded-lg bg-emerald-700 px-3 text-sm font-bold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200"
         >
           + Agregar producto
-        </button>
+        </button> : null}
       </section>
 
       {notice ? (
@@ -111,6 +112,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
             <ProductCard
               key={product.id}
               product={product}
+              canManage={canManage}
               onEdit={(opener) => {
                 setNotice("");
                 dialogOpenerRef.current = opener;
@@ -120,7 +122,7 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
           ))}
         </section>
       ) : (
-        <EmptyProductsState hasSearch={Boolean(normalizedQuery)} onCreate={() => setIsCreating(true)} />
+        <EmptyProductsState hasSearch={Boolean(normalizedQuery)} canCreate={canManage} onCreate={() => setIsCreating(true)} />
       )}
 
       {isCreating || editingProduct ? (
@@ -138,9 +140,11 @@ export function ProductsClient({ products, searchQuery }: ProductsClientProps) {
 function ProductCard({
   product,
   onEdit,
+  canManage,
 }: {
   product: ProductListItem;
   onEdit: (opener: HTMLButtonElement) => void;
+  canManage: boolean;
 }) {
   const status = getStockStatus(product.currentStock, product.minimumStock);
 
@@ -160,19 +164,19 @@ function ProductCard({
         <StockValue label="Stock" value={product.currentStock} />
         <StockValue label="Mínimo" value={product.minimumStock} />
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-      <p className={`text-xs font-bold ${product.isActive ? "text-emerald-700" : "text-slate-500"}`}>
-        {product.isActive ? "Producto activo" : "Producto inactivo"}
-      </p>
+      {canManage ? <div className="mt-2 flex items-center justify-between gap-2">
+        <p className={`text-xs font-bold ${product.isActive ? "text-emerald-700" : "text-slate-500"}`}>
+          {product.isActive ? "Producto activo" : "Producto inactivo"}
+        </p>
 
-       <button
-        type="button"
-        onClick={(event) => onEdit(event.currentTarget)}
+        <button
+          type="button"
+          onClick={(event) => onEdit(event.currentTarget)}
           className="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
-       >
-         Editar
-       </button>
-      </div>
+        >
+          Editar
+        </button>
+      </div> : null}
     </article>
   );
 }
@@ -206,9 +210,11 @@ function StatusBadge({ status }: { status: StockStatus }) {
 
 function EmptyProductsState({
   hasSearch,
+  canCreate,
   onCreate,
 }: {
   hasSearch: boolean;
+  canCreate: boolean;
   onCreate: () => void;
 }) {
   return (
@@ -219,9 +225,11 @@ function EmptyProductsState({
       <p className="mt-1 text-sm text-slate-700">
         {hasSearch
           ? "Prueba con otro nombre, categoría o código."
-          : "Registra tu primer producto para comenzar."}
+          : canCreate
+            ? "Registra tu primer producto para comenzar."
+            : "Solicita a un administrador que registre el primer producto."}
       </p>
-      {!hasSearch ? (
+      {!hasSearch && canCreate ? (
         <button
           type="button"
           onClick={onCreate}

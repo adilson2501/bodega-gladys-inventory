@@ -94,10 +94,10 @@ export function PurchasesForm({ products }: { products: PurchaseProduct[] }) {
                 <button type="button" onClick={() => setLines((current) => removeCartLine(current, line.productId))} className="min-h-10 px-2 text-sm font-bold text-red-700">Quitar</button>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className="text-sm font-semibold">Cantidad<input type="number" min="1" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(event.target.value) } : item))} className="form-input mt-1" /></label>
-                <label className="text-sm font-semibold">Costo unitario<input type="number" min="0" step="0.01" value={line.unitCost} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitCost: event.target.value } : item))} className="form-input mt-1" /></label>
+                <label className="text-sm font-semibold">Cantidad<input type="number" min="1" step="1" value={line.quantity} onChange={(event) => { rotateKey(); setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(event.target.value) } : item)); }} className="form-input mt-1" /></label>
+                <label className="text-sm font-semibold">Costo unitario<input type="number" min="0" step="0.01" value={line.unitCost} onChange={(event) => { rotateKey(); setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitCost: event.target.value } : item)); }} className="form-input mt-1" /></label>
               </div>
-              <p className="mt-2 text-right text-[13px] text-slate-600">Unidad: {unitLabels[product.unitOfMeasure]}</p>
+               <p className="mt-2 text-right text-[13px] text-slate-600">Subtotal: <strong>S/ {calculateCartTotal([line])}</strong> · Unidad: {unitLabels[product.unitOfMeasure]}</p>
             </div>;
           })}
         </div>

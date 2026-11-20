@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { getAuth } from "@/lib/auth/server";
+import { getAuthorizationErrorMessage, requirePermission } from "@/lib/auth/authorization";
 import {
   productIdSchema,
   productInputSchema,
@@ -15,11 +15,6 @@ export type ProductActionState = {
   error?: string;
   success?: string;
 } | null;
-
-async function isAuthenticated() {
-  const { data: session } = await getAuth().getSession();
-  return Boolean(session?.user);
-}
 
 function getFormValue(formData: FormData, field: string) {
   const value = formData.get(field);
@@ -41,8 +36,10 @@ export async function createProduct(
   _previousState: ProductActionState,
   formData: FormData,
 ): Promise<ProductActionState> {
-  if (!(await isAuthenticated())) {
-    return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  try {
+    await requirePermission("products:write");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
   }
 
   const result = productInputSchema.safeParse({
@@ -84,8 +81,10 @@ export async function updateProduct(
   _previousState: ProductActionState,
   formData: FormData,
 ): Promise<ProductActionState> {
-  if (!(await isAuthenticated())) {
-    return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  try {
+    await requirePermission("products:write");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
   }
 
   const productId = productIdSchema.safeParse(getFormValue(formData, "id"));

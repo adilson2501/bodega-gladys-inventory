@@ -5,7 +5,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 vi.mock("@/lib/auth/server", () => ({
   getAuth: () => ({
-    getSession: async () => ({ data: { user: { id: "staging-integration-user" } } }),
+    getSession: async () => ({
+      data: {
+        user: { id: process.env.STAGING_INTEGRATION_USER_ID ?? "staging-integration-user" },
+        session: { id: "staging-integration-session" },
+      },
+    }),
   }),
 }));
 
@@ -30,6 +35,7 @@ import { inventoryMovements, products, purchaseItems, purchases, saleItems, sale
 
 const runId = randomUUID();
 const productNamePrefix = `staging-integration-${runId}`;
+const integrationUserId = process.env.STAGING_INTEGRATION_USER_ID ?? "staging-integration-user";
 const disposableProductIds = new Set<string>();
 const disposableSaleIds = new Set<string>();
 const disposablePurchaseIds = new Set<string>();
@@ -366,7 +372,7 @@ describe("Inventory Increment 1A en staging", () => {
     const secondProductId = await createCommercialProduct(8);
     const result = await createSale(null, saleForm([
       { productId: firstProductId, quantity: 2, unitPrice: "3.50" },
-      { productId: secondProductId, quantity: 1, unitPrice: "5.00" },
+      { productId: secondProductId, quantity: 1, unitPrice: "3.50" },
     ]));
     expect(result?.saleId).toBeDefined();
     disposableSaleIds.add(result!.saleId!);
@@ -375,7 +381,7 @@ describe("Inventory Increment 1A en staging", () => {
     await expect(getProduct(secondProductId)).resolves.toEqual({ currentStock: 7 });
     const movementRows = await setupDb.select({ saleId: inventoryMovements.saleId, actorId: inventoryMovements.actorId, reason: inventoryMovements.reason }).from(inventoryMovements).where(eq(inventoryMovements.saleId, result!.saleId!));
     expect(movementRows).toHaveLength(2);
-    expect(movementRows.every((row) => row.reason === "SALE" && row.actorId === "staging-integration-user")).toBe(true);
+    expect(movementRows.every((row) => row.reason === "SALE" && row.actorId === integrationUserId)).toBe(true);
     const items = await setupDb.select().from(saleItems).where(eq(saleItems.saleId, result!.saleId!));
     expect(items).toHaveLength(2);
   });
@@ -422,7 +428,7 @@ describe("Inventory Increment 1A en staging", () => {
     await expect(getProduct(secondProductId)).resolves.toEqual({ currentStock: 7 });
     const movementRows = await setupDb.select({ purchaseId: inventoryMovements.purchaseId, actorId: inventoryMovements.actorId, reason: inventoryMovements.reason }).from(inventoryMovements).where(eq(inventoryMovements.purchaseId, result!.purchaseId!));
     expect(movementRows).toHaveLength(2);
-    expect(movementRows.every((row) => row.reason === "PURCHASE" && row.actorId === "staging-integration-user")).toBe(true);
+    expect(movementRows.every((row) => row.reason === "PURCHASE" && row.actorId === integrationUserId)).toBe(true);
     await expect(setupDb.select().from(purchaseItems).where(eq(purchaseItems.purchaseId, result!.purchaseId!))).resolves.toHaveLength(2);
   });
 

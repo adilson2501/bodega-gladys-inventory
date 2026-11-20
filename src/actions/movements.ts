@@ -5,8 +5,11 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { inventoryMovements, products } from "@/db/schema";
-import { getAuth } from "@/lib/auth/server";
-import { getInventoryActor } from "@/lib/auth/actor";
+import {
+  getAuthorizationErrorMessage,
+  requirePermission,
+  type CurrentActor,
+} from "@/lib/auth/authorization";
 import { createRequestFingerprint } from "@/lib/inventory/idempotency";
 import {
   calculateStockAdjustment,
@@ -85,11 +88,12 @@ export async function createMovement(
   _previousState: MovementActionState,
   formData: FormData,
 ): Promise<MovementActionState> {
-  const { data: session } = await getAuth().getSession();
-  if (!session?.user) {
-    return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  let actor: CurrentActor;
+  try {
+    actor = await requirePermission("inventory:movement");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
   }
-  const actor = getInventoryActor(session);
 
   const result = movementInputSchema.safeParse({
     productId: getFormValue(formData, "productId"),
@@ -155,8 +159,8 @@ export async function createMovement(
           resultingStock,
           idempotencyKey: result.data.idempotencyKey,
           requestFingerprint: fingerprint,
-          actorId: actor?.id ?? null,
-          actorEmail: actor?.email ?? null,
+          actorId: actor.id,
+          actorEmail: actor.email,
         })
         .onConflictDoNothing()
         .returning({ resultingStock: inventoryMovements.resultingStock });
@@ -200,11 +204,12 @@ export async function adjustStock(
   _previousState: MovementActionState,
   formData: FormData,
 ): Promise<MovementActionState> {
-  const { data: session } = await getAuth().getSession();
-  if (!session?.user) {
-    return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  let actor: CurrentActor;
+  try {
+    actor = await requirePermission("inventory:adjust");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
   }
-  const actor = getInventoryActor(session);
 
   const result = stockAdjustmentInputSchema.safeParse({
     productId: getFormValue(formData, "productId"),
@@ -261,8 +266,8 @@ export async function adjustStock(
           resultingStock: adjustment.resultingStock,
           idempotencyKey: result.data.idempotencyKey,
           requestFingerprint: fingerprint,
-          actorId: actor?.id ?? null,
-          actorEmail: actor?.email ?? null,
+          actorId: actor.id,
+          actorEmail: actor.email,
         })
         .onConflictDoNothing()
         .returning({ resultingStock: inventoryMovements.resultingStock });

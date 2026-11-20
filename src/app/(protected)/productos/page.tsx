@@ -3,6 +3,7 @@ import { asc } from "drizzle-orm";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
+import { requireAuthenticatedActor } from "@/lib/auth/authorization";
 
 import {
   ProductsClient,
@@ -17,6 +18,7 @@ export default async function ProductsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   await connection();
+  const actor = await requireAuthenticatedActor();
 
   const query = ((await searchParams).q ?? "").trim();
   const productRows = await db
@@ -37,5 +39,5 @@ export default async function ProductsPage({
 
   const productList: ProductListItem[] = productRows;
 
-  return <ProductsClient products={productList} searchQuery={query} />;
+  return <ProductsClient products={productList} searchQuery={query} canManage={actor.role === "ADMIN"} />;
 }

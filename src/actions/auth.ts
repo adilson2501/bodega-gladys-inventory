@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { getAuth } from "@/lib/auth/server";
 import { isBootstrapAvailable } from "@/lib/auth/bootstrap";
+import { assignInitialAdminRole } from "@/lib/auth/role-assignment";
 import {
   bootstrapAdminSchema,
   hasValidBootstrapToken,
@@ -112,6 +113,14 @@ function isTransportError(error: unknown) {
   return error instanceof TypeError || /fetch|network|timeout|timed out|connect/i.test(error.message);
 }
 
+function getCreatedUserId(result: unknown) {
+  if (!result || typeof result !== "object" || !("data" in result)) return null;
+  const data = result.data;
+  if (!data || typeof data !== "object" || !("user" in data)) return null;
+  const user = data.user;
+  return user && typeof user === "object" && "id" in user && typeof user.id === "string" ? user.id : null;
+}
+
 export async function signIn(
   _previousState: SignInState,
   formData: FormData,
@@ -181,15 +190,23 @@ export async function bootstrapAdmin(
   }
 
   try {
-    const { error } = await getAuth().signUp.email({
+    const signUpResult = await getAuth().signUp.email({
       name: result.data.name,
       email: result.data.email,
       password: result.data.password,
     });
 
-    if (error) {
+    if (signUpResult.error) {
       return { error: "No se pudo crear el acceso. Verifica los datos e inténtalo nuevamente." };
     }
+
+    const session = await getAuth().getSession();
+    const userId = getCreatedUserId(signUpResult) ?? (session.data?.user?.id ?? null);
+    if (!userId) {
+      return { error: "El acceso fue creado, pero no se pudo asignar el rol inicial. Solicita una asignación administrativa." };
+    }
+
+    await assignInitialAdminRole(userId);
   } catch {
     return { error: "No se pudo crear el acceso. Inténtalo nuevamente." };
   }

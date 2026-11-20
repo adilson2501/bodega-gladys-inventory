@@ -25,6 +25,14 @@ export const movementReason = pgEnum("movement_reason", [
 
 export const unitOfMeasure = pgEnum("unit_of_measure", ["UNIT", "KG", "LITER", "BOX", "PACK"]);
 export const paymentMethod = pgEnum("payment_method", ["CASH", "YAPE", "PLIN", "OTHER"]);
+export const appRole = pgEnum("app_role", ["ADMIN", "OPERATOR"]);
+
+export const appUserRoles = pgTable("app_user_roles", {
+  userId: text("user_id").primaryKey(),
+  role: appRole("role").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const products = pgTable(
   "products",
@@ -49,6 +57,8 @@ export const products = pgTable(
   (table) => [
     check("products_current_stock_non_negative", sql`${table.currentStock} >= 0`),
     check("products_minimum_stock_non_negative", sql`${table.minimumStock} >= 0`),
+    check("products_selling_price_non_negative", sql`${table.sellingPrice} >= 0`),
+    check("products_purchase_cost_non_negative", sql`${table.purchaseCost} >= 0`),
   ],
 );
 
@@ -112,11 +122,12 @@ export const sales = pgTable(
     subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
     total: numeric("total", { precision: 12, scale: 2 }).notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint"),
     actorId: text("actor_id"),
     actorEmail: text("actor_email"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("sales_idempotency_key_uidx").on(table.idempotencyKey), index("sales_created_at_idx").on(table.createdAt)],
+  (table) => [uniqueIndex("sales_idempotency_key_uidx").on(table.idempotencyKey), index("sales_created_at_idx").on(table.createdAt), check("sales_subtotal_non_negative", sql`${table.subtotal} >= 0`), check("sales_total_non_negative", sql`${table.total} >= 0`), check("sales_subtotal_matches_total", sql`${table.subtotal} = ${table.total}`)],
 );
 
 export const saleItems = pgTable(
@@ -130,7 +141,7 @@ export const saleItems = pgTable(
     unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
     lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
   },
-  (table) => [index("sale_items_sale_id_idx").on(table.saleId), check("sale_items_quantity_positive", sql`${table.quantity} > 0`)],
+  (table) => [index("sale_items_sale_id_idx").on(table.saleId), check("sale_items_quantity_positive", sql`${table.quantity} > 0`), check("sale_items_unit_price_non_negative", sql`${table.unitPrice} >= 0`), check("sale_items_line_total_non_negative", sql`${table.lineTotal} >= 0`), check("sale_items_line_total_consistent", sql`${table.lineTotal} = ${table.unitPrice} * ${table.quantity}`)],
 );
 
 export const suppliers = pgTable(
@@ -155,11 +166,12 @@ export const purchases = pgTable(
     subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
     total: numeric("total", { precision: 12, scale: 2 }).notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint"),
     actorId: text("actor_id"),
     actorEmail: text("actor_email"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("purchases_idempotency_key_uidx").on(table.idempotencyKey), index("purchases_created_at_idx").on(table.createdAt)],
+  (table) => [uniqueIndex("purchases_idempotency_key_uidx").on(table.idempotencyKey), index("purchases_created_at_idx").on(table.createdAt), check("purchases_subtotal_non_negative", sql`${table.subtotal} >= 0`), check("purchases_total_non_negative", sql`${table.total} >= 0`), check("purchases_subtotal_matches_total", sql`${table.subtotal} = ${table.total}`)],
 );
 
 export const purchaseItems = pgTable(
@@ -173,5 +185,5 @@ export const purchaseItems = pgTable(
     unitCost: numeric("unit_cost", { precision: 10, scale: 2 }).notNull(),
     lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
   },
-  (table) => [index("purchase_items_purchase_id_idx").on(table.purchaseId), check("purchase_items_quantity_positive", sql`${table.quantity} > 0`)],
+  (table) => [index("purchase_items_purchase_id_idx").on(table.purchaseId), check("purchase_items_quantity_positive", sql`${table.quantity} > 0`), check("purchase_items_unit_cost_non_negative", sql`${table.unitCost} >= 0`), check("purchase_items_line_total_non_negative", sql`${table.lineTotal} >= 0`), check("purchase_items_line_total_consistent", sql`${table.lineTotal} = ${table.unitCost} * ${table.quantity}`)],
 );

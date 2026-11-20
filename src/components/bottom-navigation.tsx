@@ -11,16 +11,19 @@ const mainItems = [
 ] as const;
 
 const moreItems = [
-  ["/compras", "Compras"], ["/movimiento", "Registrar movimiento"], ["/inventario", "Stock"],
+  ["/compras", "Compras"], ["/inventario", "Stock"],
   ["/historial", "Historial"], ["/predicciones", "Predicciones"],
 ] as const;
 
-export function BottomNavigation() {
+export function BottomNavigation({ role }: { role: "ADMIN" | "OPERATOR" }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const navigationRef = useRef<HTMLElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const moreActive = moreItems.some(([href]) => pathname.startsWith(href));
+  const visibleMoreItems = role === "ADMIN"
+    ? [["/compras", "Compras"], ["/movimiento", "Registrar movimiento"], ["/inventario", "Stock"], ["/historial", "Historial"], ["/predicciones", "Predicciones"]] as const
+    : moreItems;
+  const moreActive = visibleMoreItems.some(([href]) => pathname.startsWith(href));
 
   useEffect(() => {
     const closeTimer = window.setTimeout(() => setOpen(false), 0);
@@ -52,7 +55,7 @@ export function BottomNavigation() {
   return (
     <nav ref={navigationRef} aria-label="Navegación principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[max(.4rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
       {open ? <div id="mobile-more-menu" className="absolute bottom-full right-2 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu">
-        {moreItems.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800" role="menuitem">{label}</Link>)}
+        {visibleMoreItems.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800" role="menuitem">{label}</Link>)}
       </div> : null}
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {mainItems.map((item) => <NavItem key={item.href} {...item} active={item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)} onNavigate={() => setOpen(false)} />)}

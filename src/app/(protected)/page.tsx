@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { db } from "@/db";
 import { inventoryMovements, products } from "@/db/schema";
 import { getStockStatus, type StockStatus } from "@/lib/inventory/stock-status";
+import { requireAuthenticatedActor } from "@/lib/auth/authorization";
 import {
   movementReasonLabels,
   movementTypeLabels,
@@ -16,6 +17,7 @@ export const instant = false;
 
 export default async function HomePage() {
   await connection();
+  const actor = await requireAuthenticatedActor();
 
   const [productRows, movementRows] = await Promise.all([
     db
@@ -61,7 +63,7 @@ export default async function HomePage() {
           <QuickAction href="/ventas" label="Nueva venta" />
           <QuickAction href="/compras" label="Nueva compra" />
           <QuickAction href="/productos" label="Productos" />
-          <QuickAction href="/movimiento" label="Movimiento" />
+          {actor.role === "ADMIN" ? <QuickAction href="/movimiento" label="Movimiento" /> : null}
         </section>
       ) : null}
 
@@ -84,7 +86,7 @@ export default async function HomePage() {
 
           <div className="space-y-2">
             {visibleAttentionProducts.map((product) => (
-              <AttentionCard key={product.id} product={product} />
+              <AttentionCard key={product.id} product={product} canAdjustStock={actor.role === "ADMIN"} />
             ))}
           </div>
         </section>
@@ -137,6 +139,7 @@ function SetupCard() {
 
 function AttentionCard({
   product,
+  canAdjustStock,
 }: {
   product: {
     id: string;
@@ -145,6 +148,7 @@ function AttentionCard({
     minimumStock: number;
     status: StockStatus;
   };
+  canAdjustStock: boolean;
 }) {
   const isOutOfStock = product.status === "AGOTADO";
 
@@ -159,12 +163,12 @@ function AttentionCard({
         </div>
         <StatusBadge status={product.status} />
       </div>
-      <Link
+      {canAdjustStock ? <Link
         href={`/movimiento?product=${encodeURIComponent(product.id)}`}
         className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-700 px-3 text-[13px] font-bold text-emerald-900 hover:bg-emerald-50"
       >
         {isOutOfStock ? "Registrar entrada" : "Reponer producto"}
-      </Link>
+      </Link> : null}
     </article>
   );
 }

@@ -5,9 +5,13 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { inventoryMovements, products, saleItems, sales } from "@/db/schema";
-import { getAuth } from "@/lib/auth/server";
-import { getInventoryActor } from "@/lib/auth/actor";
-import { centsToMoney, parseMoneyToCents } from "@/lib/commercial/money";
+import {
+  getAuthorizationErrorMessage,
+  requirePermission,
+  type CurrentActor,
+} from "@/lib/auth/authorization";
+import { addCents, centsToMoney, multiplyCents, parseMoneyToCents } from "@/lib/commercial/money";
+import { createCommercialFingerprint } from "@/lib/inventory/idempotency";
 import { saleInputSchema } from "@/lib/validations/commercial";
 
 export type SaleActionState = { error?: string; success?: string; saleId?: string } | null;
@@ -22,9 +26,12 @@ function validationError() {
 }
 
 export async function createSale(_previousState: SaleActionState, formData: FormData): Promise<SaleActionState> {
-  const { data: session } = await getAuth().getSession();
-  const actor = getInventoryActor(session);
-  if (!actor) return { error: "Tu sesión terminó. Inicia sesión nuevamente." };
+  let actor: CurrentActor;
+  try {
+    actor = await requirePermission("sales:create");
+  } catch (error) {
+    return { error: getAuthorizationErrorMessage(error) };
+  }
 
   let items: unknown;
   try {
@@ -45,8 +52,12 @@ export async function createSale(_previousState: SaleActionState, formData: Form
 
   try {
     const operation = await db.transaction(async (tx) => {
-      const existing = await tx.select({ id: sales.id }).from(sales).where(eq(sales.idempotencyKey, parsed.data.idempotencyKey));
-      if (existing[0]) return { id: existing[0].id, duplicate: true };
+      const fingerprint = createCommercialFingerprint({ type: "sale", paymentMethod: parsed.data.paymentMethod, items: parsed.data.items });
+      const existing = await tx.select({ id: sales.id, requestFingerprint: sales.requestFingerprint }).from(sales).where(eq(sales.idempotencyKey, parsed.data.idempotencyKey));
+      if (existing[0]) {
+        if (existing[0].requestFingerprint && existing[0].requestFingerprint !== fingerprint) throw new Error("La clave de idempotencia ya fue utilizada con otra venta.");
+        return { id: existing[0].id, duplicate: true };
+      }
 
       const sortedItems = [...parsed.data.items].sort((a, b) => a.productId.localeCompare(b.productId));
       const lockedProducts = [];
@@ -55,30 +66,34 @@ export async function createSale(_previousState: SaleActionState, formData: Form
         const product = rows[0];
         if (!product || !product.isActive) throw new Error("Uno de los productos no está disponible.");
         if (product.currentStock < item.quantity) throw new Error(`Stock insuficiente para ${product.name}.`);
+        const submittedCents = parseMoneyToCents(item.unitPrice);
+        const catalogCents = parseMoneyToCents(product.sellingPrice);
+        if (catalogCents <= 0) throw new Error(`El producto ${product.name} no tiene un precio de venta válido.`);
+        if (submittedCents !== catalogCents) throw new Error(`El precio de ${product.name} cambió. Actualiza la venta e inténtalo de nuevo.`);
         lockedProducts.push({ item, product });
       }
 
-      const totalCents = parsed.data.items.reduce(
-        (total, item) => total + parseMoneyToCents(item.unitPrice) * item.quantity,
-        0,
-      );
+      const totalCents = lockedProducts.reduce((total, { item, product }) => addCents(total, multiplyCents(parseMoneyToCents(product.sellingPrice), item.quantity)), 0);
       const inserted = await tx.insert(sales).values({
         paymentMethod: parsed.data.paymentMethod,
         subtotal: centsToMoney(totalCents),
         total: centsToMoney(totalCents),
         idempotencyKey: parsed.data.idempotencyKey,
+        requestFingerprint: fingerprint,
         actorId: actor.id,
         actorEmail: actor.email,
       }).onConflictDoNothing({ target: sales.idempotencyKey }).returning({ id: sales.id });
       if (!inserted[0]) {
-        const raced = await tx.select({ id: sales.id }).from(sales).where(eq(sales.idempotencyKey, parsed.data.idempotencyKey));
+        const raced = await tx.select({ id: sales.id, requestFingerprint: sales.requestFingerprint }).from(sales).where(eq(sales.idempotencyKey, parsed.data.idempotencyKey));
         if (!raced[0]) throw new Error("No se pudo recuperar la venta idempotente.");
+        if (raced[0].requestFingerprint && raced[0].requestFingerprint !== fingerprint) throw new Error("La clave de idempotencia ya fue utilizada con otra venta.");
         return { id: raced[0].id, duplicate: true };
       }
 
       for (const { item, product } of lockedProducts) {
-        const price = centsToMoney(parseMoneyToCents(item.unitPrice));
-        const lineTotal = centsToMoney(parseMoneyToCents(item.unitPrice) * item.quantity);
+        const priceCents = parseMoneyToCents(product.sellingPrice);
+        const price = centsToMoney(priceCents);
+        const lineTotal = centsToMoney(multiplyCents(priceCents, item.quantity));
         const resultingStock = product.currentStock - item.quantity;
         await tx.insert(saleItems).values({
           saleId: inserted[0].id,

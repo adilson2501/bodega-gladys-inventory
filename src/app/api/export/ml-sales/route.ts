@@ -4,13 +4,19 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/db";
 import { products, saleItems, sales } from "@/db/schema";
-import { getAuth } from "@/lib/auth/server";
+import { AuthorizationError, requirePermission } from "@/lib/auth/authorization";
 
 /** Dataset export for ML: deliberately excludes actor/user fields. */
 export async function GET() {
   await connection();
-  const { data: session } = await getAuth().getSession();
-  if (!session?.user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  try {
+    await requirePermission("exports:ml");
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
   const rows = await db.select({ date: sales.createdAt, productId: saleItems.productId, quantity: saleItems.quantity })
     .from(saleItems).innerJoin(sales, eq(saleItems.saleId, sales.id)).innerJoin(products, eq(saleItems.productId, products.id)).orderBy(desc(sales.createdAt));
   const escape = (value: string | number | Date | null) => `"${String(value ?? "").replaceAll('"', '""')}"`;

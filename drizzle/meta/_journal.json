@@ -22,6 +22,20 @@
       "when": 1794420639607,
       "tag": "0002_mysterious_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795130151605,
+      "tag": "0003_app-user-roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795131215590,
+      "tag": "0004_familiar_rick_jones",
+      "breakpoints": true
     }
   ]
 }

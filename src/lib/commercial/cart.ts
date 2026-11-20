@@ -9,11 +9,11 @@ export function removeCartLine<T extends { productId: string }>(lines: T[], prod
 }
 
 export function calculateCartTotal(lines: PricedCartLine[]) {
-  return lines
-    .reduce((sum, line) => sum + Number(line.unitPrice ?? line.unitCost ?? 0) * line.quantity, 0)
-    .toFixed(2);
+  const total = lines.reduce((sum, line) => addCents(sum, multiplyCents(parseMoneyToCents(line.unitPrice ?? line.unitCost ?? "0"), line.quantity)), 0);
+  return centsToMoney(total);
 }
 
 export function canSubmitCart(lines: { productId: string }[], requiredValue?: string) {
   return lines.length > 0 && (requiredValue === undefined || requiredValue.trim().length > 0);
 }
+import { centsToMoney, multiplyCents, parseMoneyToCents, addCents } from "@/lib/commercial/money";

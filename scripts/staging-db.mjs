@@ -12,17 +12,39 @@ function normalizeHostname(value) {
   return value.trim().toLowerCase().replace(/\.$/, "");
 }
 
+export function validateStagingEndpoint({ expectedEndpoint, databaseUrl, productionEndpoint = process.env.PRODUCTION_NEON_ENDPOINT_HOST }) {
+  const expected = normalizeHostname(expectedEndpoint ?? "");
+  if (!expected || expected.includes("/") || expected.includes(":")) {
+    fail("STAGING_NEON_ENDPOINT_HOST debe ser un hostname, no una URL ni una cadena de conexión.");
+  }
+  const production = productionEndpoint?.trim() ? normalizeHostname(productionEndpoint) : null;
+  if (production && expected === production) fail("STAGING_NEON_ENDPOINT_HOST apunta al endpoint de Production.");
+
+  let actual;
+  try {
+    const parsedUrl = new URL(databaseUrl);
+    if (parsedUrl.protocol !== "postgres:" && parsedUrl.protocol !== "postgresql:") {
+      fail("DATABASE_URL no usa un protocolo PostgreSQL válido.");
+    }
+    actual = normalizeHostname(parsedUrl.hostname);
+  } catch {
+    fail("DATABASE_URL no es una URL PostgreSQL válida.");
+  }
+  if (production && actual === production) fail("DATABASE_URL apunta al endpoint de Production.");
+  if (actual !== expected) fail("El endpoint de DATABASE_URL no coincide con STAGING_NEON_ENDPOINT_HOST.");
+  return { expectedEndpoint: expected, endpointHostname: actual };
+}
+
+export function assertReadOnlyMetadata(metadata) {
+  if (metadata?.transaction_read_only !== "on") fail("La conexión no está en modo read-only.");
+}
+
 export function loadStagingDatabase() {
   // This value must come from the caller, never from the staging env file.
   delete process.env.DATABASE_URL;
 
   if (!trustedExpectedEndpoint) {
     fail("STAGING_NEON_ENDPOINT_HOST es obligatorio y debe venir del entorno de ejecución.");
-  }
-
-  const expectedEndpoint = normalizeHostname(trustedExpectedEndpoint);
-  if (!expectedEndpoint || expectedEndpoint.includes("/") || expectedEndpoint.includes(":")) {
-    fail("STAGING_NEON_ENDPOINT_HOST debe ser un hostname, no una URL ni una cadena de conexión.");
   }
 
   const loaded = config({ path: stagingEnvPath, override: true });
@@ -35,22 +57,8 @@ export function loadStagingDatabase() {
     fail("DATABASE_URL no está definido en .env.staging.local.");
   }
 
-  let endpointHostname;
-  try {
-    const parsedUrl = new URL(databaseUrl);
-    if (parsedUrl.protocol !== "postgres:" && parsedUrl.protocol !== "postgresql:") {
-      fail("DATABASE_URL no usa un protocolo PostgreSQL válido.");
-    }
-    endpointHostname = normalizeHostname(parsedUrl.hostname);
-  } catch {
-    fail("DATABASE_URL no es una URL PostgreSQL válida.");
-  }
-
-  if (endpointHostname !== expectedEndpoint) {
-    fail("El endpoint de DATABASE_URL no coincide con STAGING_NEON_ENDPOINT_HOST.");
-  }
-
-  return { databaseUrl, endpointHostname };
+  const endpoint = validateStagingEndpoint({ expectedEndpoint: trustedExpectedEndpoint, databaseUrl });
+  return { databaseUrl, endpointHostname: endpoint.endpointHostname };
 }
 
 export async function withVerifiedStagingConnection(callback) {
@@ -75,9 +83,7 @@ export async function withVerifiedStagingConnection(callback) {
     `);
 
     const metadata = result.rows[0];
-    if (metadata.transaction_read_only !== "on") {
-      fail("La conexión no está en modo read-only.");
-    }
+    assertReadOnlyMetadata(metadata);
 
     return await callback({ client, ...staging, metadata });
   } catch (error) {

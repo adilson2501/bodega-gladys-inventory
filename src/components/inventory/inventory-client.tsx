@@ -20,6 +20,7 @@ type InventoryClientProps = {
   products: InventoryListItem[];
   summary: InventorySummary;
   showAdjustmentSuccess?: boolean;
+  canAdjustStock: boolean;
 };
 
 type StatusFilter = "TODOS" | "POR_REPONER" | "AGOTADO";
@@ -30,7 +31,7 @@ const filters: { value: StatusFilter; label: string }[] = [
   { value: "AGOTADO", label: "Agotados" },
 ];
 
-export function InventoryClient({ products, summary, showAdjustmentSuccess = false }: InventoryClientProps) {
+export function InventoryClient({ products, summary, showAdjustmentSuccess = false, canAdjustStock }: InventoryClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("TODOS");
   const [showSuccess, setShowSuccess] = useState(showAdjustmentSuccess);
@@ -162,7 +163,7 @@ export function InventoryClient({ products, summary, showAdjustmentSuccess = fal
             {selectedStatus === "POR_REPONER" ? "Productos por reponer" : "Todos los productos"}
           </h2>
           {visibleProducts.map((product) => (
-            <InventoryCard key={product.id} product={product} />
+            <InventoryCard key={product.id} product={product} canAdjustStock={canAdjustStock} />
           ))}
         </section>
       ) : (
@@ -205,7 +206,7 @@ function SummaryCard({
   );
 }
 
-function InventoryCard({ product }: { product: InventoryListItem }) {
+function InventoryCard({ product, canAdjustStock }: { product: InventoryListItem; canAdjustStock: boolean }) {
   const status = getStockStatus(product.currentStock, product.minimumStock);
   const requiresRestock = needsRestock(product.currentStock, product.minimumStock);
   const restockMessage = getRestockMessage(product, status);
@@ -230,15 +231,13 @@ function InventoryCard({ product }: { product: InventoryListItem }) {
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        {requiresRestock ? (
-          <Link href={`/movimiento?product=${encodeURIComponent(product.id)}`} title={restockMessage} className="inline-flex min-h-9 items-center rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">Registrar entrada</Link>
-        ) : null}
-        <Link
+        {requiresRestock && canAdjustStock ? <Link href={`/movimiento?product=${encodeURIComponent(product.id)}`} title={restockMessage} className="inline-flex min-h-9 items-center rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">Registrar entrada</Link> : null}
+        {canAdjustStock ? <Link
           href={`/ajustar?product=${encodeURIComponent(product.id)}`}
           className="ml-auto inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 hover:bg-slate-50"
         >
           Ajustar stock contado
-        </Link>
+        </Link> : null}
       </div>
     </article>
   );

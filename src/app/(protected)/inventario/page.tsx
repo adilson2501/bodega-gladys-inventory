@@ -5,6 +5,7 @@ import { InventoryClient, type InventoryListItem } from "@/components/inventory/
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { getInventorySummary } from "@/lib/inventory/inventory-summary";
+import { requireAuthenticatedActor } from "@/lib/auth/authorization";
 
 export const instant = false;
 
@@ -14,6 +15,7 @@ export default async function InventoryPage({
   searchParams: Promise<{ adjustment?: string | string[] }>;
 }) {
   await connection();
+  const actor = await requireAuthenticatedActor();
   const { adjustment } = await searchParams;
 
   const productRows = await db
@@ -35,6 +37,7 @@ export default async function InventoryPage({
       products={productList}
       summary={getInventorySummary(productList)}
       showAdjustmentSuccess={adjustment === "success"}
+      canAdjustStock={actor.role === "ADMIN"}
     />
   );
 }

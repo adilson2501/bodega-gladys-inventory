@@ -60,11 +60,13 @@ def load_project_model(model_path="ml/artifacts/apf3/model.joblib", metadata_pat
     return joblib.load(model_path), metadata
 
 
-def predict(record, model_path="ml/artifacts/apf3/model.joblib", metadata_path="ml/artifacts/apf3/model_metadata.json"):
+def predict_loaded(record, model, metadata):
     record = validate_record(record)
-    model, metadata = load_project_model(model_path, metadata_path)
     features = pd.DataFrame([{name: record[name] for name in FEATURES}], columns=FEATURES)
-    forecast = max(0.0, float(model.predict(features)[0]))
+    raw_forecast = float(model.predict(features)[0])
+    if not np.isfinite(raw_forecast):
+        raise ValueError("Model prediction is not finite")
+    forecast = max(0.0, raw_forecast)
     return {
         "product_id": record["product_id"],
         "cutoff_date": record["date"],
@@ -74,6 +76,11 @@ def predict(record, model_path="ml/artifacts/apf3/model.joblib", metadata_path="
         "horizon_days": metadata["forecast_horizon_days"],
         "source": metadata["source"],
     }
+
+
+def predict(record, model_path="ml/artifacts/apf3/model.joblib", metadata_path="ml/artifacts/apf3/model_metadata.json"):
+    model, metadata = load_project_model(model_path, metadata_path)
+    return predict_loaded(record, model, metadata)
 
 
 def _read_csv(path):
