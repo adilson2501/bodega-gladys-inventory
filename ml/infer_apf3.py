@@ -91,7 +91,11 @@ def audit_export(artifact_dir="ml/artifacts/apf3"):
         raise ValueError("Exported model contract is inconsistent")
     if metadata.get("test_period") != {"start": "2026-10-16", "end": "2026-10-24"}:
         raise ValueError("Exported test period is inconsistent")
-    if metadata.get("metrics", {}).get("ridge", {}).get("test_metrics", {}).get("mae") != 1.2984537784882764:
+    exported_mae = metadata.get("metrics", {}).get("ridge", {}).get("test_metrics", {}).get("mae")
+    # Refitting can differ at floating-point precision across platforms.
+    if not isinstance(exported_mae, (int, float)) or not math.isclose(
+        exported_mae, 1.2984537784882764, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ValueError("Exported test metrics do not match the frozen evaluation")
     if not hasattr(model, "named_steps") or set(model.named_steps) != {"preprocess", "model"}:
         raise ValueError("Exported preprocessing pipeline is incomplete")

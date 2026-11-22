@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
+import infer_apf3
 from infer_apf3 import audit_export, build_future_record, predict, run_future_demo, validate_record
 from train_apf3 import (
     baseline_predictions,
@@ -67,6 +68,26 @@ def test_selection_is_frozen_before_test_and_hash_matches_export():
     assert metadata["source"] == "SYNTHETIC"
 
 
+@pytest.mark.parametrize(
+    ("exported_mae", "matches_frozen_evaluation"),
+    [(1.2984537784882773, True), (1.2985, False), (None, False)],
+)
+def test_audit_distinguishes_rounding_from_a_changed_metric(
+    monkeypatch, exported_mae, matches_frozen_evaluation
+):
+    model, metadata = infer_apf3.load_project_model(
+        ARTIFACTS / "model.joblib", ARTIFACTS / "model_metadata.json"
+    )
+    metadata["metrics"]["ridge"]["test_metrics"]["mae"] = exported_mae
+    monkeypatch.setattr(infer_apf3, "load_project_model", lambda *_: (model, metadata))
+
+    if matches_frozen_evaluation:
+        assert audit_export(ARTIFACTS)["model_family"] == "ridge"
+    else:
+        with pytest.raises(ValueError, match="do not match the frozen evaluation"):
+            audit_export(ARTIFACTS)
+
+
 def test_future_demo_uses_only_cutoff_history_and_canonical_stock():
     audit = audit_export(ARTIFACTS)
     first_record, first_product = build_future_record("ml/data/simulation-v1")
@@ -85,6 +106,10 @@ def test_future_demo_uses_only_cutoff_history_and_canonical_stock():
     demo = run_future_demo("ml/data/simulation-v1", ARTIFACTS, ARTIFACTS)
     assert demo["prediction"]["forecast_start"] == "2026-11-01"
     assert demo["prediction"]["forecast_end"] == "2026-11-07"
-    assert demo["replenishment"]["stock_at_cutoff"] == first_product["stock_at_cutoff"]
+    assert demo["prediction"]["product_name"] == "Papas Lays clásica 45 g"
+    assert demo["prediction"]["forecast_next_7d_units"] == pytest.approx(5.78, abs=0.005)
+    assert demo["replenishment"]["stock_at_cutoff"] == first_product["stock_at_cutoff"] == 9
+    assert demo["replenishment"]["minimum_stock"] == 8
+    assert demo["replenishment"]["recommended_purchase_units"] == 5
     assert demo["replenishment"]["database_write_performed"] is False
     assert prediction["forecast_next_7d_units"] >= 0
