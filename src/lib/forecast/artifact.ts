@@ -20,19 +20,32 @@ const forecastArtifactSchema = z.object({
   rows: z.array(forecastRowSchema),
 }).superRefine((artifact, context) => {
   const ids = new Set<string>();
+
   for (const [index, row] of artifact.rows.entries()) {
-    if (ids.has(row.product_id)) context.addIssue({ code: "custom", path: ["rows", index, "product_id"], message: "Producto duplicado." });
+    if (ids.has(row.product_id)) {
+      context.addIssue({
+        code: "custom",
+        path: ["rows", index, "product_id"],
+        message: "Producto duplicado.",
+      });
+    }
+
     ids.add(row.product_id);
   }
 });
 
-const metricSchema = z.object({ mae: z.number().finite().nonnegative(), wape: z.number().finite().nonnegative().nullable() });
+const metricSchema = z.object({
+  mae: z.number().finite().nonnegative(),
+  wape: z.number().finite().nonnegative().nullable(),
+});
+
 const metricsSchema = z.object({
   source: z.enum(["REAL", "SYNTHETIC"]),
   products: z.record(z.string(), z.record(z.string(), metricSchema)),
 });
 
 export type ForecastArtifact = z.infer<typeof forecastArtifactSchema>;
+export type ForecastMetrics = z.infer<typeof metricsSchema>;
 
 export function parseForecastArtifact(value: unknown): ForecastArtifact {
   return forecastArtifactSchema.parse(value);
@@ -40,18 +53,28 @@ export function parseForecastArtifact(value: unknown): ForecastArtifact {
 
 export function loadForecastArtifact(): ForecastArtifact | null {
   try {
-    const raw = JSON.parse(readFileSync(join(process.cwd(), "ml", "artifacts", "forecast.json"), "utf8")) as unknown;
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "ml", "artifacts", "forecast.json"),
+        "utf8",
+      ),
+    ) as unknown;
+
     return parseForecastArtifact(raw);
   } catch {
     return null;
   }
 }
 
-export type ForecastMetrics = z.infer<typeof metricsSchema>;
-
 export function loadForecastMetrics(): ForecastMetrics | null {
   try {
-    const raw = JSON.parse(readFileSync(join(process.cwd(), "ml", "artifacts", "metrics.json"), "utf8")) as unknown;
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "ml", "artifacts", "metrics.json"),
+        "utf8",
+      ),
+    ) as unknown;
+
     return metricsSchema.parse(raw);
   } catch {
     return null;

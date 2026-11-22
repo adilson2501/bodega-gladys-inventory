@@ -48,7 +48,17 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 ml/data/
-ml/artifacts/
+
+# Ignorar artefactos ML por defecto
+ml/artifacts/*
+
+# Permitir artefactos APF3 necesarios para la aplicación
+!ml/artifacts/apf3/
+ml/artifacts/apf3/*
+!ml/artifacts/apf3/model_metadata.json
+!ml/artifacts/apf3/future_inference_output.json
+!ml/artifacts/apf3/replenishment_recommendation.json
+!ml/artifacts/apf3/phase_e1_audit.json
 
 # Python virtual environment
 .venv/

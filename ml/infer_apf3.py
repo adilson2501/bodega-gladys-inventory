@@ -84,20 +84,49 @@ def _read_csv(path):
 def audit_export(artifact_dir="ml/artifacts/apf3"):
     """Verify the model export, D.1 hashes, schema, and frozen metrics."""
     root, d1_metadata, split_metadata, _ = verify_d1_artifacts(artifact_dir)
-    model, metadata = load_project_model(root / "model.joblib", root / "model_metadata.json")
+    model, metadata = load_project_model(
+        root / "model.joblib",
+        root / "model_metadata.json"
+    )
+
     if metadata.get("model_family") != "ridge" or metadata.get("hyperparameters") != {"alpha": 10.0}:
         raise ValueError("Exported model selection metadata is inconsistent")
+
     if metadata.get("forecast_horizon_days") != 7 or metadata.get("source") != "SYNTHETIC":
         raise ValueError("Exported model contract is inconsistent")
+
     if metadata.get("test_period") != {"start": "2026-10-16", "end": "2026-10-24"}:
         raise ValueError("Exported test period is inconsistent")
-    if metadata.get("metrics", {}).get("ridge", {}).get("test_metrics", {}).get("mae") != 1.2984537784882764:
+
+    exported_mae = metadata.get("metrics", {}).get("ridge", {}).get("test_metrics", {}).get("mae")
+
+    if exported_mae is None or not math.isclose(
+        exported_mae,
+        1.2984537784882764,
+        rel_tol=1e-9,
+        abs_tol=1e-12
+    ):
         raise ValueError("Exported test metrics do not match the frozen evaluation")
+
     if not hasattr(model, "named_steps") or set(model.named_steps) != {"preprocess", "model"}:
         raise ValueError("Exported preprocessing pipeline is incomplete")
+
     if model.named_steps["model"].alpha != 10.0:
         raise ValueError("Exported Ridge alpha is inconsistent")
-    return {"artifact_dir": str(root), "model_sha256": metadata["joblib_sha256"], "dataset_hash": metadata["dataset_hash"], "model_family": metadata["model_family"], "hyperparameters": metadata["hyperparameters"], "training_period": metadata["training_period"], "validation_period": metadata["validation_period"], "test_period": metadata["test_period"], "source": metadata["source"], "d1_source_batch_id": d1_metadata["source_manifest_batch_id"], "split": split_metadata}
+
+    return {
+        "artifact_dir": str(root),
+        "model_sha256": metadata["joblib_sha256"],
+        "dataset_hash": metadata["dataset_hash"],
+        "model_family": metadata["model_family"],
+        "hyperparameters": metadata["hyperparameters"],
+        "training_period": metadata["training_period"],
+        "validation_period": metadata["validation_period"],
+        "test_period": metadata["test_period"],
+        "source": metadata["source"],
+        "d1_source_batch_id": d1_metadata["source_manifest_batch_id"],
+        "split": split_metadata
+    }
 
 
 def build_future_record(source_dir="ml/data/simulation-v1", cutoff=SIMULATION_END, product_id=None):

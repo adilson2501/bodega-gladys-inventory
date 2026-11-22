@@ -1,0 +1,13 @@
+{
+  "cutoff_date": "2026-10-31",
+  "forecast_end": "2026-11-07",
+  "forecast_next_7d_units": 5.783411543392284,
+  "forecast_start": "2026-11-01",
+  "horizon_days": 7,
+  "limitations": "Synthetic offline estimate; not a guaranteed future sale and not a production decision.",
+  "model": "ridge",
+  "model_version": "apf3-models-1.0",
+  "product_id": "6ce5d35d-c954-5f70-8e79-d1046a3b3475",
+  "product_name": "Papas Lays cl\u00e1sica 45 g",
+  "source": "SYNTHETIC"
+}
