@@ -79,17 +79,10 @@
   },
   "input": {
     "cutoff": "2026-10-31",
+    "excluded_products": [],
     "future_sales_used": false,
-    "product": {
-      "category": "Snacks",
-      "future_sales_used": false,
-      "history_end": "2026-10-31",
-      "history_start": "2026-08-01",
-      "minimum_stock": 8,
-      "product_id": "6ce5d35d-c954-5f70-8e79-d1046a3b3475",
-      "product_name": "Papas Lays cl\u00e1sica 45 g",
-      "stock_at_cutoff": 9
-    }
+    "generated_products": 20,
+    "requested_products": 20
   },
   "outputs": {
     "future_inference_output": "future_inference_output.json",

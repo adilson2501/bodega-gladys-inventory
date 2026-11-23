@@ -1,4 +1,3 @@
-
 import { asc } from "drizzle-orm";
 import { connection } from "next/server";
 
@@ -60,17 +59,15 @@ export default async function PredictionsPage() {
       </section>
 
       {/* RESUMEN DEL ARTEFACTO ANTERIOR */}
-      {artifact ? (
-        <ArtifactSummary artifact={artifact} />
-      ) : null}
+      {artifact ? <ArtifactSummary artifact={artifact} /> : null}
 
       {/* PREDICCIÓN DEL MODELO APF3 */}
-      {apf3Demo ? (
+      {apf3Demo && apf3Demo.length > 0 ? (
         <Apf3DemoSection demo={apf3Demo} />
       ) : null}
 
       {/* AVISO SI NO HAY ARCHIVOS */}
-      {!artifact && !apf3Demo ? (
+      {!artifact && (!apf3Demo || apf3Demo.length === 0) ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-700">
           No hay pronósticos importados ni una demostración APF3 disponible.
         </div>
@@ -89,10 +86,7 @@ export default async function PredictionsPage() {
           </summary>
 
           <div className="mt-4">
-            <MetricsSection
-              metrics={metrics}
-              demos={presentation.demos}
-            />
+            <MetricsSection metrics={metrics} demos={presentation.demos} />
           </div>
         </details>
       ) : null}
@@ -114,9 +108,9 @@ export default async function PredictionsPage() {
 
         {presentation.isSynthetic ? (
           <p className="rounded-2xl border border-slate-300 bg-white p-5 text-slate-700">
-            No hay recomendaciones operativas disponibles: el artefacto
-            cargado es sintético. Los productos reales no reciben stock ni
-            reposición inventados.
+            No hay recomendaciones operativas disponibles: el artefacto cargado
+            es sintético. Los productos reales no reciben stock ni reposición
+            inventados.
           </p>
         ) : (
           presentation.operational.map(({ product, forecast }) => (
@@ -136,9 +130,9 @@ export default async function PredictionsPage() {
       </section>
 
       <p className="text-sm leading-6 text-slate-600">
-        La reposición operativa se calcula como máximo(0, techo(demanda
-        7d + stock de seguridad - stock actual)). No crea compras ni
-        modifica inventario.
+        La reposición operativa se calcula como máximo(0, techo(demanda 7d +
+        stock de seguridad - stock actual)). No crea compras ni modifica
+        inventario.
       </p>
     </div>
   );
@@ -170,10 +164,7 @@ function ArtifactSummary({
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric label="Horizonte" value="7 días" />
 
-        <Metric
-          label="Generado"
-          value={formatDate(artifact.generated_at)}
-        />
+        <Metric label="Generado" value={formatDate(artifact.generated_at)} />
 
         <Metric label="Modelo" value={artifact.model_type} />
 
@@ -198,9 +189,7 @@ function ArtifactSummary({
    PREDICCIÓN APF3
 ========================================================= */
 
-function Apf3DemoSection({ demo }: { demo: Apf3Demo }) {
-  const { inference, replenishment } = demo;
-
+function Apf3DemoSection({ demo }: { demo: Apf3Demo[] }) {
   return (
     <section className="space-y-4" aria-labelledby="apf3-title">
       <div>
@@ -208,108 +197,103 @@ function Apf3DemoSection({ demo }: { demo: Apf3Demo }) {
           Experimento de Machine Learning
         </p>
 
-        <h2
-          id="apf3-title"
-          className="mt-1 text-2xl font-bold text-slate-950"
-        >
-          Predicción APF3
+        <h2 id="apf3-title" className="mt-1 text-2xl font-bold text-slate-950">
+          Predicciones APF3
         </h2>
 
         <p className="mt-1 text-sm text-slate-600">
-          Estimación de demanda mediante el modelo Ridge para los próximos
-          siete días.
+          El modelo Ridge genera estimaciones individuales de demanda para cada
+          producto.
+        </p>
+
+        <p className="mt-2 text-sm font-semibold text-amber-900">
+          {demo.length} productos con predicción disponible
         </p>
       </div>
 
-      <article className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5">
-        {/* INFORMACIÓN DEL PRODUCTO */}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-bold text-amber-950">
-              {inference.product_name}
-            </h3>
+      <div className="grid gap-4">
+        {demo.map(({ inference, replenishment }) => (
+          <article
+            key={inference.product_id}
+            className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-amber-950">
+                  {inference.product_name}
+                </h3>
 
-            <p className="mt-1 text-sm text-amber-900">
-              Modelo: {inference.model} · Versión: {inference.model_version}
-            </p>
-          </div>
+                <p className="mt-1 text-sm text-amber-900">
+                  Modelo: {inference.model} · Versión: {inference.model_version}
+                </p>
+              </div>
 
-          <span className="rounded-xl bg-amber-200 px-3 py-1.5 text-xs font-bold text-amber-950">
-            DEMO SINTÉTICA
-          </span>
-        </div>
+              <span className="rounded-xl bg-amber-200 px-3 py-1.5 text-xs font-bold text-amber-950">
+                DEMO SINTÉTICA
+              </span>
+            </div>
 
-        {/* INDICADORES */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-white p-3">
-            <p className="text-sm text-slate-600">
-              Demanda estimada
-            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Metric
+                label="Demanda estimada"
+                value={`${formatNumber(inference.forecast_next_7d_units)} u`}
+              />
 
-            <p className="mt-1 text-2xl font-bold text-slate-950">
-              {formatNumber(inference.forecast_next_7d_units)} u
-            </p>
-          </div>
+              <Metric
+                label="Stock al corte"
+                value={`${replenishment.stock_at_cutoff} u`}
+              />
 
-          <Metric
-            label="Stock al corte"
-            value={`${replenishment.stock_at_cutoff} unidades`}
-          />
+              <Metric
+                label="Stock mínimo"
+                value={`${replenishment.minimum_stock} u`}
+              />
 
-          <Metric
-            label="Stock mínimo"
-            value={`${replenishment.minimum_stock} unidades`}
-          />
+              <Metric
+                label="Stock objetivo"
+                value={`${replenishment.target_stock_units} u`}
+              />
 
-          <Metric
-            label="Stock objetivo"
-            value={`${replenishment.target_stock_units} unidades`}
-          />
+              <Metric
+                label="Compra sugerida"
+                value={`${replenishment.recommended_purchase_units} u`}
+              />
 
-          <Metric
-            label="Compra sugerida"
-            value={`${replenishment.recommended_purchase_units} unidades`}
-          />
+              <Metric
+                label="Horizonte"
+                value={`${inference.horizon_days} días`}
+              />
+            </div>
 
-          <Metric
-            label="Horizonte"
-            value={`${inference.horizon_days} días`}
-          />
-        </div>
+            <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4">
+              <p className="font-bold text-amber-950">Periodo de predicción</p>
 
-        {/* PERIODO DE PREDICCIÓN */}
-        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4">
-          <p className="font-bold text-amber-950">
-            Periodo de predicción
-          </p>
+              <p className="mt-1 text-sm text-slate-700">
+                Del {inference.forecast_start} al {inference.forecast_end}
+              </p>
 
-          <p className="mt-1 text-sm text-slate-700">
-            Del {inference.forecast_start} al {inference.forecast_end}
-          </p>
+              <p className="mt-2 text-sm text-slate-600">
+                Fecha de corte: {inference.cutoff_date}
+              </p>
+            </div>
 
-          <p className="mt-2 text-sm text-slate-600">
-            Fecha de corte de datos: {inference.cutoff_date}
-          </p>
-        </div>
+            <div className="mt-4 rounded-xl bg-amber-100 p-4 text-sm leading-6 text-amber-950">
+              <p className="font-bold">Recomendación informativa</p>
 
-        {/* RECOMENDACIÓN */}
-        <div className="mt-4 rounded-xl bg-amber-100 p-4 text-sm leading-6 text-amber-950">
-          <p className="font-bold">
-            Recomendación informativa
-          </p>
+              <p>
+                Se sugieren {replenishment.recommended_purchase_units} unidades
+                para alcanzar el stock objetivo calculado.
+              </p>
 
-          <p>
-            Se sugieren {replenishment.recommended_purchase_units} unidades
-            para alcanzar el stock objetivo calculado.
-          </p>
-
-          <p className="mt-2">
-            Esta demostración utiliza datos sintéticos. No representa
-            ventas reales, no garantiza la demanda futura y no modifica
-            el inventario ni registra compras.
-          </p>
-        </div>
-      </article>
+              <p className="mt-2">
+                Esta predicción utiliza datos sintéticos. No representa ventas
+                reales, no garantiza la demanda futura y no modifica el
+                inventario ni registra compras.
+              </p>
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -330,16 +314,13 @@ function DemoSection({
           Demostración académica
         </p>
 
-        <h2
-          id="demo-title"
-          className="mt-1 text-2xl font-bold text-slate-950"
-        >
+        <h2 id="demo-title" className="mt-1 text-2xl font-bold text-slate-950">
           Pronósticos sintéticos
         </h2>
 
         <p className="mt-1 text-sm text-slate-700">
-          Estos valores ilustran el modelo y no corresponden a productos
-          ni stock de la bodega.
+          Estos valores ilustran el modelo y no corresponden a productos ni
+          stock de la bodega.
         </p>
       </div>
 
@@ -349,9 +330,7 @@ function DemoSection({
           className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5"
         >
           <div className="flex items-start justify-between gap-4">
-            <h3 className="text-xl font-bold text-amber-950">
-              {demo.label}
-            </h3>
+            <h3 className="text-xl font-bold text-amber-950">{demo.label}</h3>
 
             <span className="rounded-xl bg-amber-200 px-3 py-1.5 text-xs font-bold text-amber-950">
               DEMO
@@ -364,15 +343,9 @@ function DemoSection({
               value={`${formatNumber(demo.forecast.forecast_7d)} unidades`}
             />
 
-            <Metric
-              label="Modelo"
-              value={demo.forecast.model}
-            />
+            <Metric label="Modelo" value={demo.forecast.model} />
 
-            <Metric
-              label="Stock / reponer"
-              value="No aplica"
-            />
+            <Metric label="Stock / reponer" value="No aplica" />
           </dl>
         </article>
       ))}
@@ -406,8 +379,8 @@ function MetricsSection({
         </h2>
 
         <p className="mt-1 text-sm text-slate-700">
-          MAE y WAPE son resultados fuera de muestra del conjunto
-          sintético, no evidencia de ventas reales.
+          MAE y WAPE son resultados fuera de muestra del conjunto sintético, no
+          evidencia de ventas reales.
         </p>
       </div>
 
@@ -416,18 +389,13 @@ function MetricsSection({
           key={`metrics-${demo.forecast.product_id}`}
           className="rounded-2xl border border-slate-200 bg-white p-5"
         >
-          <h3 className="font-bold text-slate-950">
-            {demo.label}
-          </h3>
+          <h3 className="font-bold text-slate-950">{demo.label}</h3>
 
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {Object.entries(
-              metrics.products[demo.forecast.product_id] ?? {},
-            )
+            {Object.entries(metrics.products[demo.forecast.product_id] ?? {})
               .filter(
                 ([name]) =>
-                  name !== "evaluation_start" &&
-                  name !== "evaluation_end",
+                  name !== "evaluation_start" && name !== "evaluation_end",
               )
               .map(([name, value]) => (
                 <Metric
@@ -440,9 +408,7 @@ function MetricsSection({
                         : "Ingenuo"
                   }
                   value={`MAE ${formatNumber(value.mae)} · WAPE ${
-                    value.wape === null
-                      ? "n/d"
-                      : formatPercent(value.wape)
+                    value.wape === null ? "n/d" : formatPercent(value.wape)
                   }`}
                 />
               ))}
@@ -477,9 +443,7 @@ function OperationalCard({
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-xl font-bold text-slate-950">
-            {product.name}
-          </h3>
+          <h3 className="text-xl font-bold text-slate-950">{product.name}</h3>
 
           <p className="mt-1 text-sm text-slate-600">
             Stock actual: <strong>{product.currentStock}</strong>
@@ -504,10 +468,7 @@ function OperationalCard({
           }
         />
 
-        <Metric
-          label="Método"
-          value={forecast?.model ?? "Sin pronóstico"}
-        />
+        <Metric label="Método" value={forecast?.model ?? "Sin pronóstico"} />
       </dl>
     </article>
   );
@@ -517,13 +478,7 @@ function OperationalCard({
    COMPONENTES AUXILIARES
 ========================================================= */
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
       <dt className="text-slate-600">{label}</dt>
