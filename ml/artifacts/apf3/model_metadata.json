@@ -1,0 +1,276 @@
+{
+  "categorical_features": [
+    "product_id",
+    "category",
+    "unit_of_measure",
+    "historical_demand_class"
+  ],
+  "charts": [
+    "predicted_vs_actual.png",
+    "residual_distribution.png",
+    "model_comparison.png",
+    "feature_importance.png"
+  ],
+  "dataset_hash": "e99add29ad5f1d0f06ec53ba7d9f5e1773e1525bd68e848973ed43db952a5ac9",
+  "dataset_version": "apf3-dataset-1.0",
+  "dependency_versions": {
+    "joblib": "1.4.2",
+    "numpy": "2.2.4",
+    "pandas": "2.2.3",
+    "python": "3.13.15",
+    "scikit_learn": "1.6.1"
+  },
+  "feature_importance": [
+    {
+      "feature": "categorical__product_id_1c30d819-9a34-58a4-bcb0-00ef4caea0d8",
+      "importance": 2.1844837960030983
+    },
+    {
+      "feature": "categorical__product_id_7e81ec5b-03a5-5368-8a3a-c8716df95fcb",
+      "importance": 2.1117324481822934
+    },
+    {
+      "feature": "categorical__product_id_ff4acd48-37ab-5bff-9f3c-19b3403d72a4",
+      "importance": 1.9936316177025044
+    },
+    {
+      "feature": "categorical__product_id_474b0286-dabd-5093-afd3-487a3539118c",
+      "importance": 1.8868013529262564
+    },
+    {
+      "feature": "categorical__product_id_c0eb64b2-911f-530c-852c-903f80cf14f2",
+      "importance": 1.8192670776607107
+    },
+    {
+      "feature": "categorical__product_id_79877964-67a8-548b-9e5c-33d64161932a",
+      "importance": 1.6832383693998325
+    },
+    {
+      "feature": "categorical__product_id_6ce5d35d-c954-5f70-8e79-d1046a3b3475",
+      "importance": 1.6760939662201737
+    },
+    {
+      "feature": "categorical__product_id_26803346-ff00-5d5d-95fe-4fd0756a12e1",
+      "importance": 1.5542617220912822
+    },
+    {
+      "feature": "categorical__product_id_a6d259a1-0413-5b36-8301-12e9a0c54282",
+      "importance": 1.5019014690591053
+    },
+    {
+      "feature": "categorical__product_id_9569fc3f-a7ee-55cc-a33c-d52033bdf978",
+      "importance": 1.4341185004351202
+    },
+    {
+      "feature": "categorical__product_id_cabac25f-7261-55a5-9494-d80a985a5ccb",
+      "importance": 1.4334392599795827
+    },
+    {
+      "feature": "categorical__product_id_0b8558d3-62a2-5277-8c4b-9f19a62081dc",
+      "importance": 1.221903420261589
+    },
+    {
+      "feature": "categorical__category_Bebidas",
+      "importance": 1.1385254602025214
+    },
+    {
+      "feature": "categorical__product_id_ddf7db0d-33b2-5ebf-ae0e-9a0f116a79fa",
+      "importance": 1.0607199673954173
+    },
+    {
+      "feature": "categorical__product_id_6773794b-8984-5448-a9e1-b8fc4455dae9",
+      "importance": 1.0144608193341509
+    },
+    {
+      "feature": "categorical__product_id_54764775-232d-5467-a32c-3b7477f50255",
+      "importance": 0.9646741729214928
+    },
+    {
+      "feature": "categorical__category_Snacks",
+      "importance": 0.8951881382900515
+    },
+    {
+      "feature": "categorical__product_id_1e15471d-486a-5f00-951a-d7822171c1c7",
+      "importance": 0.8488319385336441
+    },
+    {
+      "feature": "categorical__category_Conservas",
+      "importance": 0.8342816243437714
+    },
+    {
+      "feature": "categorical__product_id_97594ca4-b430-5515-99bd-8aaf521b1016",
+      "importance": 0.8310086416808615
+    }
+  ],
+  "features": [
+    "product_id",
+    "category",
+    "unit_of_measure",
+    "historical_demand_class",
+    "lag_1",
+    "lag_2",
+    "lag_7",
+    "rolling_mean_7",
+    "rolling_mean_14",
+    "rolling_std_7",
+    "sales_frequency_7",
+    "sales_frequency_14",
+    "day_of_week",
+    "month",
+    "stock_available_eod"
+  ],
+  "forecast_horizon_days": 7,
+  "hyperparameters": {
+    "alpha": 10.0
+  },
+  "joblib_sha256": "47e1035f2e3f0153602ca01807ab37e76b204e1a96fd5e0de31a86bdd73702da",
+  "metrics": {
+    "moving_average_14d": {
+      "test_metrics": {
+        "count": 540,
+        "mae": 1.3120370375925927,
+        "mean_signed_error": -0.1009259274814815,
+        "r2": 0.44066915711242327,
+        "rmse": 1.8645076791604127,
+        "wape": 0.58408903569662
+      },
+      "train_metrics": {
+        "count": 2220,
+        "mae": 1.2448198216531532,
+        "mean_signed_error": -0.01689189477027028,
+        "r2": 0.3787703496411817,
+        "rmse": 1.8028693357776617,
+        "wape": 0.6045723045438636
+      },
+      "validation_metrics": {
+        "count": 540,
+        "mae": 1.2768518541111111,
+        "mean_signed_error": -0.008333334777777798,
+        "r2": 0.3799114280071608,
+        "rmse": 1.745496853620768,
+        "wape": 0.6128888899733334
+      }
+    },
+    "naive_7d": {
+      "test_metrics": {
+        "count": 540,
+        "mae": 1.387037041148148,
+        "mean_signed_error": -0.03888888688888897,
+        "r2": 0.298918376897666,
+        "rmse": 2.0874403980579768,
+        "wape": 0.6174773307666941
+      },
+      "train_metrics": {
+        "count": 2220,
+        "mae": 1.4207207243648647,
+        "mean_signed_error": -0.006306305644144205,
+        "r2": 0.1597267937567891,
+        "rmse": 2.096758546470766,
+        "wape": 0.6900021894749507
+      },
+      "validation_metrics": {
+        "count": 540,
+        "mae": 1.3981481518333334,
+        "mean_signed_error": -0.04629629620370379,
+        "r2": 0.17346650244794093,
+        "rmse": 2.0152198677857753,
+        "wape": 0.67111111288
+      }
+    },
+    "random_forest": {
+      "test_metrics": {
+        "count": 540,
+        "mae": 1.3312877636695775,
+        "mean_signed_error": -0.10194998796933517,
+        "r2": 0.46437306709798887,
+        "rmse": 1.8245719568778136,
+        "wape": 0.5926590209246264
+      },
+      "train_metrics": {
+        "count": 2220,
+        "mae": 0.9098350784503868,
+        "mean_signed_error": -0.0034093320419521568,
+        "r2": 0.719736659697765,
+        "rmse": 1.210936336066643,
+        "wape": 0.4418800862305532
+      },
+      "validation_metrics": {
+        "count": 540,
+        "mae": 1.2381225011883406,
+        "mean_signed_error": 0.03029467013806502,
+        "r2": 0.4180697117549951,
+        "rmse": 1.6909380134542347,
+        "wape": 0.5942988005704034
+      }
+    },
+    "ridge": {
+      "test_metrics": {
+        "count": 540,
+        "mae": 1.2984537784882773,
+        "mean_signed_error": 0.08603508497132821,
+        "r2": 0.5176610527512647,
+        "rmse": 1.7314340656650278,
+        "wape": 0.5780420778101152
+      },
+      "train_metrics": {
+        "count": 2220,
+        "mae": 1.0405430298640892,
+        "mean_signed_error": 2.7559787443181954e-05,
+        "r2": 0.6094940053038207,
+        "rmse": 1.4293942039844525,
+        "wape": 0.5053610864796059
+      },
+      "validation_metrics": {
+        "count": 540,
+        "mae": 1.2375092521342663,
+        "mean_signed_error": 0.20739127608854788,
+        "r2": 0.4692570844769247,
+        "rmse": 1.614857888834987,
+        "wape": 0.5940044410244478
+      }
+    }
+  },
+  "model_family": "ridge",
+  "model_version": "apf3-models-1.0",
+  "numeric_features": [
+    "lag_1",
+    "lag_2",
+    "lag_7",
+    "rolling_mean_7",
+    "rolling_mean_14",
+    "rolling_std_7",
+    "sales_frequency_7",
+    "sales_frequency_14",
+    "day_of_week",
+    "month",
+    "stock_available_eod"
+  ],
+  "random_seed": 42,
+  "selection": {
+    "frozen_before_test": true,
+    "selected_hyperparameters": {
+      "alpha": 10.0
+    },
+    "selected_ml_beats_strongest_baseline": true,
+    "selected_model": "ridge",
+    "selected_validation_mae": 1.2375092521342663,
+    "selection_criterion": "validation MAE among Ridge and Random Forest only",
+    "strongest_baseline": "moving_average_14d",
+    "strongest_baseline_validation_mae": 1.2768518541111111
+  },
+  "source": "SYNTHETIC",
+  "test_period": {
+    "end": "2026-10-24",
+    "start": "2026-10-16"
+  },
+  "training_period": {
+    "end": "2026-10-09",
+    "fit_rows": 2760,
+    "note": "Export refit uses frozen train plus validation after test evaluation.",
+    "start": "2026-08-15"
+  },
+  "validation_period": {
+    "end": "2026-10-09",
+    "start": "2026-10-01"
+  }
+}

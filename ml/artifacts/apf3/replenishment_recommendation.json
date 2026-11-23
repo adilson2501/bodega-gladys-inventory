@@ -1,0 +1,14 @@
+{
+  "cutoff_date": "2026-10-31",
+  "database_write_performed": false,
+  "formula": "max(0, ceil(predicted_next_7d_units) + minimum_stock - stock_at_cutoff)",
+  "informational_only": true,
+  "minimum_stock": 8,
+  "predicted_next_7d_units": 5.783411543392284,
+  "product_id": "6ce5d35d-c954-5f70-8e79-d1046a3b3475",
+  "product_name": "Papas Lays cl\u00e1sica 45 g",
+  "recommended_purchase_units": 5,
+  "source": "SYNTHETIC",
+  "stock_at_cutoff": 9,
+  "target_stock_units": 14
+}
