@@ -1,0 +1,91 @@
+{
+  "audit": {
+    "artifact_dir": "ml\\artifacts\\apf3",
+    "d1_source_batch_id": "simulation-v1.1.0:42:2026-08-01:2026-10-31",
+    "dataset_hash": "e99add29ad5f1d0f06ec53ba7d9f5e1773e1525bd68e848973ed43db952a5ac9",
+    "hyperparameters": {
+      "alpha": 10.0
+    },
+    "model_family": "ridge",
+    "model_sha256": "47e1035f2e3f0153602ca01807ab37e76b204e1a96fd5e0de31a86bdd73702da",
+    "source": "SYNTHETIC",
+    "split": {
+      "horizon_days": 7,
+      "purged_or_warmup_dates": [
+        "2026-08-01",
+        "2026-08-02",
+        "2026-08-03",
+        "2026-08-04",
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09",
+        "2026-08-10",
+        "2026-08-11",
+        "2026-08-12",
+        "2026-08-13",
+        "2026-08-14",
+        "2026-09-21",
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24",
+        "2026-09-25",
+        "2026-09-26",
+        "2026-09-27",
+        "2026-09-28",
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-10",
+        "2026-10-11",
+        "2026-10-12",
+        "2026-10-13",
+        "2026-10-14",
+        "2026-10-15"
+      ],
+      "strategy": "chronological product-day split with seven-day label-availability and target-window purges",
+      "target_windows_do_not_overlap": true,
+      "test": {
+        "end": "2026-10-24",
+        "samples": 540,
+        "start": "2026-10-16"
+      },
+      "train": {
+        "end": "2026-09-20",
+        "samples": 2220,
+        "start": "2026-08-15"
+      },
+      "validation": {
+        "end": "2026-10-09",
+        "samples": 540,
+        "start": "2026-10-01"
+      },
+      "warmup_days": 14
+    },
+    "test_period": {
+      "end": "2026-10-24",
+      "start": "2026-10-16"
+    },
+    "training_period": {
+      "end": "2026-10-09",
+      "fit_rows": 2760,
+      "note": "Export refit uses frozen train plus validation after test evaluation.",
+      "start": "2026-08-15"
+    },
+    "validation_period": {
+      "end": "2026-10-09",
+      "start": "2026-10-01"
+    }
+  },
+  "input": {
+    "cutoff": "2026-10-31",
+    "excluded_products": [],
+    "future_sales_used": false,
+    "generated_products": 20,
+    "requested_products": 20
+  },
+  "outputs": {
+    "future_inference_output": "future_inference_output.json",
+    "replenishment_recommendation": "replenishment_recommendation.json"
+  }
+}

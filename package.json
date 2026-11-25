@@ -20,7 +20,12 @@
     "db:migrate:staging:preflight": "node scripts/migrate-staging-direct.mjs --dry-run",
     "db:test:staging": "node scripts/test-staging-integration.mjs",
     "test:integration:resolution": "node scripts/check-integration-import.mjs",
-    "ml:test": "pytest ml/tests"
+    "ml:test": "pytest ml/tests",
+    "ml:simulate": "python3 -m ml.simulate_commercial --output ml/data/simulation-v1",
+    "ml:validate:simulation": "python3 -m ml.validate_simulation --output ml/data/simulation-v1",
+    "db:import:simulation:staging": "node scripts/import-simulation-staging.mjs --output ml/data/simulation-v1",
+    "db:reconcile:simulation:staging": "node scripts/import-simulation-staging.mjs --output ml/data/simulation-v1 --reconcile",
+    "test:simulation-importer": "node --test scripts/import-simulation-staging.test.mjs"
   },
   "dependencies": {
     "@neondatabase/auth": "^0.5.0-beta",
