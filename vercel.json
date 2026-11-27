@@ -7,13 +7,13 @@
       "bindings": [
         {
           "type": "service",
-          "service": "apf3",
+          "service": "apf-service",
           "format": "url",
           "env": "APF3_SERVICE_URL"
         }
       ]
     },
-    "apf3": {
+    "apf-service": {
       "root": "python",
       "framework": "fastapi",
       "entrypoint": "app:app",
