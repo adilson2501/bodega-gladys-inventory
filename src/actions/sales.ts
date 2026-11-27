@@ -9,6 +9,11 @@ import { getAuth } from "@/lib/auth/server";
 import { getInventoryActor } from "@/lib/auth/actor";
 import { centsToMoney, parseMoneyToCents } from "@/lib/commercial/money";
 import { saleInputSchema } from "@/lib/validations/commercial";
+import {
+  assertNormalOperationOrigin,
+  deriveOperationOrigin,
+  setDatabaseOperationOrigin,
+} from "@/lib/provenance/origin";
 
 export type SaleActionState = { error?: string; success?: string; saleId?: string } | null;
 
@@ -57,12 +62,18 @@ export async function createSale(_previousState: SaleActionState, formData: Form
         if (product.currentStock < item.quantity) throw new Error(`Stock insuficiente para ${product.name}.`);
         lockedProducts.push({ item, product });
       }
+      const operationOrigin = assertNormalOperationOrigin(
+        deriveOperationOrigin(lockedProducts.map(({ product }) => product.origin)),
+      );
+      await tx.execute(setDatabaseOperationOrigin(operationOrigin));
 
       const totalCents = parsed.data.items.reduce(
         (total, item) => total + parseMoneyToCents(item.unitPrice) * item.quantity,
         0,
       );
       const inserted = await tx.insert(sales).values({
+        origin: operationOrigin,
+        sourceBatchId: null,
         paymentMethod: parsed.data.paymentMethod,
         subtotal: centsToMoney(totalCents),
         total: centsToMoney(totalCents),
@@ -81,6 +92,7 @@ export async function createSale(_previousState: SaleActionState, formData: Form
         const lineTotal = centsToMoney(parseMoneyToCents(item.unitPrice) * item.quantity);
         const resultingStock = product.currentStock - item.quantity;
         await tx.insert(saleItems).values({
+          origin: operationOrigin,
           saleId: inserted[0].id,
           productId: product.id,
           productName: product.name,
@@ -89,6 +101,8 @@ export async function createSale(_previousState: SaleActionState, formData: Form
           lineTotal,
         });
         await tx.insert(inventoryMovements).values({
+          origin: operationOrigin,
+          sourceBatchId: null,
           productId: product.id,
           type: "OUT",
           reason: "SALE",

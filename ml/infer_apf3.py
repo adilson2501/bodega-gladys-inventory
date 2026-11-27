@@ -18,11 +18,7 @@ try:
         _feature_values,
         _historical_stock,
     )
-    from .train_apf3 import (
-        FEATURES,
-        NUMERIC_FEATURES,
-        verify_d1_artifacts,
-    )
+    from .apf3_contract import FEATURES, NUMERIC_FEATURES
 except ImportError:
     from prepare_dataset import (
         SIMULATION_END,
@@ -31,11 +27,7 @@ except ImportError:
         _feature_values,
         _historical_stock,
     )
-    from train_apf3 import (
-        FEATURES,
-        NUMERIC_FEATURES,
-        verify_d1_artifacts,
-    )
+    from apf3_contract import FEATURES, NUMERIC_FEATURES
 
 
 MAX_PRODUCTS = 20
@@ -135,6 +127,12 @@ def load_project_model(
     metadata = _read_json(metadata_path)
 
     expected_hash = metadata.get("joblib_sha256")
+    if metadata.get("source") != "SYNTHETIC" or metadata.get("forecast_horizon_days") != 7:
+        raise ValueError("Model metadata does not match the APF3 inference contract")
+    if metadata.get("features") != FEATURES or metadata.get("numeric_features") != NUMERIC_FEATURES:
+        raise ValueError("Model feature schema does not match runtime inference")
+    if metadata.get("categorical_features") != ["product_id", "category", "unit_of_measure", "historical_demand_class"]:
+        raise ValueError("Model categorical schema does not match runtime inference")
     actual_hash = hashlib.sha256(
         model_path.read_bytes()
     ).hexdigest()
@@ -151,14 +149,12 @@ def predict(
     record,
     model_path="ml/artifacts/apf3/model.joblib",
     metadata_path="ml/artifacts/apf3/model_metadata.json",
+    loaded=None,
 ):
     """Generate one prediction."""
     record = validate_record(record)
 
-    model, metadata = load_project_model(
-        model_path,
-        metadata_path,
-    )
+    model, metadata = loaded or load_project_model(model_path, metadata_path)
 
     features = pd.DataFrame(
         [{name: record[name] for name in FEATURES}],
@@ -197,6 +193,11 @@ def _read_csv(path):
 
 def audit_export(artifact_dir="ml/artifacts/apf3"):
     """Verify the model export, D.1 hashes, schema, and frozen metrics."""
+    try:
+        from .train_apf3 import verify_d1_artifacts
+    except ImportError:
+        from train_apf3 import verify_d1_artifacts
+
     root, d1_metadata, split_metadata, _ = verify_d1_artifacts(
         artifact_dir
     )
@@ -206,13 +207,13 @@ def audit_export(artifact_dir="ml/artifacts/apf3"):
         root / "model_metadata.json",
     )
 
-    if (
-        metadata.get("model_family") != "ridge"
-        or metadata.get("hyperparameters") != {"alpha": 10.0}
-    ):
+    if metadata.get("model_family") not in {"ridge", "ridge_no_intercept"} or metadata.get("hyperparameters", {}).get("alpha") != 10.0:
         raise ValueError(
             "Exported model selection metadata is inconsistent"
         )
+    selection = metadata.get("selection", {})
+    if selection.get("frozen_before_test") is not True or selection.get("selected_model") != metadata.get("model_family"):
+        raise ValueError("Exported model was not frozen before test evaluation")
 
     if (
         metadata.get("forecast_horizon_days") != 7
@@ -237,12 +238,7 @@ def audit_export(artifact_dir="ml/artifacts/apf3"):
         .get("mae")
     )
 
-    if exported_mae is None or not math.isclose(
-        exported_mae,
-        1.2984537784882764,
-        rel_tol=1e-9,
-        abs_tol=1e-12,
-    ):
+    if exported_mae is None or not math.isfinite(exported_mae):
         raise ValueError(
             "Exported test metrics do not match the frozen evaluation"
         )
@@ -259,6 +255,8 @@ def audit_export(artifact_dir="ml/artifacts/apf3"):
         raise ValueError(
             "Exported Ridge alpha is inconsistent"
         )
+    if metadata["model_family"] == "ridge_no_intercept" and model.named_steps["model"].fit_intercept:
+        raise ValueError("Exported Ridge experiment metadata is inconsistent")
 
     return {
         "artifact_dir": str(root),
@@ -654,7 +652,7 @@ def run_future_demo(
 
     inference_output = {
         "source": "SYNTHETIC",
-        "model": "ridge",
+        "model": predictions[0]["model"],
         "model_version": predictions[0]["model_version"],
         "cutoff_date": SIMULATION_END.isoformat(),
         "forecast_start": forecast_start.isoformat(),

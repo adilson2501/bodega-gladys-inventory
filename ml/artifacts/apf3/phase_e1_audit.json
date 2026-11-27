@@ -1,13 +1,13 @@
 {
   "audit": {
-    "artifact_dir": "ml\\artifacts\\apf3",
+    "artifact_dir": "ml/artifacts/apf3",
     "d1_source_batch_id": "simulation-v1.1.0:42:2026-08-01:2026-10-31",
-    "dataset_hash": "e99add29ad5f1d0f06ec53ba7d9f5e1773e1525bd68e848973ed43db952a5ac9",
+    "dataset_hash": "e5239f92d36be9f1b4c0071eda74df8fc6cef8fa135f76b9c386fb5ea7ee2e2a",
     "hyperparameters": {
       "alpha": 10.0
     },
-    "model_family": "ridge",
-    "model_sha256": "47e1035f2e3f0153602ca01807ab37e76b204e1a96fd5e0de31a86bdd73702da",
+    "model_family": "ridge_no_intercept",
+    "model_sha256": "a1c08e168ec3f1a5a4ebd9fecc742fd8dd7ac5c54303449702711a4fd6834240",
     "source": "SYNTHETIC",
     "split": {
       "horizon_days": 7,

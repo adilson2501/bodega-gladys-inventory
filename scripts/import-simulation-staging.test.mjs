@@ -62,6 +62,9 @@ test("builds deterministic import plans and detects duplicate batches", async ()
   const first = buildImportPlan(dataset);
   const second = buildImportPlan(dataset);
   assert.deepEqual(first, second);
+  assert.equal(first.products[0].origin, "SYNTHETIC");
+  assert.equal(first.products[0].source_batch_id, dataset.manifest.batch_id);
+  assert.equal(first.sales[0].origin, "SYNTHETIC");
   let queries = 0;
   const conflicts = await detectConflicts({ query: async () => { queries += 1; return { rows: queries === 1 ? [{ id: first.products[0].id }] : [] }; } }, first);
   assert.ok(conflicts.length > 0);
@@ -96,7 +99,7 @@ function reconciliationClient(dataset, { timestampMismatch = false } = {}) {
       }
       if (sql.includes("from public.sales where id")) return { rows: [{ count: plan.sales.length, total: moneyTotal(plan.sales), first_created_at: plan.sales[0].created_at, last_created_at: plan.sales.at(-1).created_at }] };
       if (sql.includes("from public.purchases where id")) return { rows: [{ count: plan.purchases.length, total: moneyTotal(plan.purchases), first_created_at: plan.purchases[0].created_at, last_created_at: plan.purchases.at(-1).created_at }] };
-      if (sql.startsWith("select id, product_id")) return { rows: structuredClone(plan.inventory_movements) };
+      if (sql.startsWith("select id, origin, source_batch_id")) return { rows: structuredClone(plan.inventory_movements) };
       if (sql.startsWith("select id, current_stock")) return { rows: plan.products.map((row) => ({ id: row.id, current_stock: Number(dataset.tables.products.find((source) => source.id === row.id).current_stock) })) };
       throw new Error(`Unexpected query: ${sql}`);
     },
@@ -128,7 +131,16 @@ test("validation failure rolls back the atomic import", async () => {
     async query(sql) {
       statements.push(sql);
       if (sql === "select current_database() as database_name, current_setting('transaction_read_only') as transaction_read_only, current_setting('neon.endpoint_id', true) as neon_endpoint_id, current_setting('neon.timeline_id', true) as neon_timeline_id") return { rows: [{ database_name: "staging", transaction_read_only: "off", neon_endpoint_id: "staging-id" }] };
+      if (sql.includes("from information_schema.columns")) return { rows: [
+        { table_name: "products", column_name: "origin" }, { table_name: "products", column_name: "source_batch_id" },
+        { table_name: "suppliers", column_name: "origin" }, { table_name: "suppliers", column_name: "source_batch_id" },
+        { table_name: "sales", column_name: "origin" }, { table_name: "sales", column_name: "source_batch_id" },
+        { table_name: "purchases", column_name: "origin" }, { table_name: "purchases", column_name: "source_batch_id" },
+        { table_name: "inventory_movements", column_name: "origin" }, { table_name: "inventory_movements", column_name: "source_batch_id" },
+        { table_name: "sale_items", column_name: "origin" }, { table_name: "purchase_items", column_name: "origin" },
+      ] };
       if (sql.startsWith("select id from public.")) return { rows: [] };
+      if (sql.startsWith("update public.products")) return { rows: [], rowCount: 1 };
       if (sql.includes("from public.sales where id") || sql.includes("from public.purchases where id")) return { rows: [{ count: 0, total: "0.00" }] };
       if (sql.startsWith("select count(*)")) return { rows: [{ count: 0 }] };
       return { rows: [] };

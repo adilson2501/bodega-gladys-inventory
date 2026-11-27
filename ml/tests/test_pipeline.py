@@ -8,7 +8,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from prepare_dataset import prepare, prepare_apf3
-from train import feature_row, wape, fit_product
+from train import _daily_series, feature_row, wape, fit_product
 
 
 def test_prepare_ignores_invalid_and_keeps_observed_zero_window():
@@ -26,6 +26,16 @@ def test_evaluation_is_deterministic_and_wape_handles_zero():
     rows = [{"date": (date(2026, 8, 1) + timedelta(days=i)).isoformat(), "quantity": i % 4 + 1} for i in range(40)]
     assert wape([0, 0], [1, 2]) is None
     assert fit_product(rows) == fit_product(rows)
+
+
+def test_legacy_series_materializes_calendar_gaps_before_lags():
+    dates, values = _daily_series([
+        {"date": "2026-08-01", "quantity": "2"},
+        {"date": "2026-08-03", "quantity": "1"},
+        {"date": "2026-08-03", "quantity": "2"},
+    ])
+    assert [day.isoformat() for day in dates] == ["2026-08-01", "2026-08-02", "2026-08-03"]
+    assert values == [2, 0, 3]
 
 
 def _read(path):

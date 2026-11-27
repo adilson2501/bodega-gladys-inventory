@@ -1,0 +1,56 @@
+{
+  "overfitting": {
+    "moving_average_14d": {
+      "test_mae": 1.3120370375925927,
+      "train_mae": 1.2448198216531532,
+      "validation_mae": 1.2768518541111111
+    },
+    "naive_7d": {
+      "test_mae": 1.387037041148148,
+      "train_mae": 1.4207207243648647,
+      "validation_mae": 1.3981481518333334
+    },
+    "random_forest": {
+      "test_mae": 1.3312877636695775,
+      "train_mae": 0.9098350784503868,
+      "validation_mae": 1.2381225011883406
+    },
+    "ridge": {
+      "test_mae": 1.2984537784882764,
+      "train_mae": 1.0405430298640892,
+      "validation_mae": 1.2375092521342652
+    },
+    "ridge_no_intercept": {
+      "test_mae": 1.235859420288656,
+      "train_mae": 1.0391053081183526,
+      "validation_mae": 1.233880843408955
+    }
+  },
+  "selected_model": "ridge_no_intercept",
+  "top_test_errors": [
+    {
+      "absolute_error": 5.891939768139517,
+      "actual": 11.0,
+      "cutoff_date": "2026-10-21",
+      "plausible_explanation": "A short synthetic history and intermittent demand can make a seven-day aggregate change abruptly; this is descriptive, not causal evidence.",
+      "predicted": 5.108060231860483,
+      "product_id": "9569fc3f-a7ee-55cc-a33c-d52033bdf978"
+    },
+    {
+      "absolute_error": 5.888427253527152,
+      "actual": 11.0,
+      "cutoff_date": "2026-10-22",
+      "plausible_explanation": "A short synthetic history and intermittent demand can make a seven-day aggregate change abruptly; this is descriptive, not causal evidence.",
+      "predicted": 5.111572746472848,
+      "product_id": "9569fc3f-a7ee-55cc-a33c-d52033bdf978"
+    },
+    {
+      "absolute_error": 5.040268077076244,
+      "actual": 10.0,
+      "cutoff_date": "2026-10-23",
+      "plausible_explanation": "A short synthetic history and intermittent demand can make a seven-day aggregate change abruptly; this is descriptive, not causal evidence.",
+      "predicted": 4.959731922923756,
+      "product_id": "9569fc3f-a7ee-55cc-a33c-d52033bdf978"
+    }
+  ]
+}

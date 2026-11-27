@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { asc } from "drizzle-orm";
+import { asc, ne } from "drizzle-orm";
 
 import { InventoryClient, type InventoryListItem } from "@/components/inventory/inventory-client";
 import { db } from "@/db";
@@ -26,6 +26,7 @@ export default async function InventoryPage({
       minimumStock: products.minimumStock,
     })
     .from(products)
+    .where(ne(products.origin, "SYNTHETIC"))
     .orderBy(asc(products.name));
 
   const productList: InventoryListItem[] = productRows;

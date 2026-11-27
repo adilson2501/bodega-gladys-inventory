@@ -1,0 +1,19 @@
+{
+  "category": "Abarrotes",
+  "date": "2026-08-15",
+  "day_of_week": 5.0,
+  "historical_demand_class": "low",
+  "lag_1": 0.0,
+  "lag_2": 0.0,
+  "lag_7": 1.0,
+  "month": 8.0,
+  "product_id": "01ea0bed-65cf-5b1c-b49a-9eb614399f36",
+  "rolling_mean_14": 0.21428571,
+  "rolling_mean_7": 0.14285714,
+  "rolling_std_7": 0.34992711,
+  "sales_frequency_14": 3.0,
+  "sales_frequency_7": 1.0,
+  "source": "SYNTHETIC",
+  "stock_available_eod": 1.0,
+  "unit_of_measure": "PACK"
+}

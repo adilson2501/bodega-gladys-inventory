@@ -34,6 +34,16 @@ FEATURE_COLUMNS = [
     "sales_frequency_7", "sales_frequency_14", "day_of_week", "month",
     "stock_available_eod", "historical_demand_class",
 ]
+D1_OUTPUT_FILES = (
+    "prepared_product_day.csv",
+    "feature_target_dataset.csv",
+    "ml_samples.csv",
+    "eda_statistics.json",
+    "temporal_split.json",
+    "quality_report.json",
+    "data_dictionary.json",
+    "preprocessing_plan.json",
+)
 RAW_COLUMNS = [
     "date", "product_id", "category", "completed_units", "potential_units",
     "unfulfilled_units", "observation_status", "stockout_censored",
@@ -287,7 +297,7 @@ def prepare_apf3(source="ml/data/simulation-v1", output="ml/artifacts/apf3"):
     _json_write(out / "data_dictionary.json", {"raw_columns": {name: description for name, description in {"date": "Calendar cutoff date", "product_id": "Stable synthetic product identifier", "category": "Observable product category", "completed_units": "Completed sale units on the date", "potential_units": "Synthetic potential demand diagnostic, not used as a feature", "unfulfilled_units": "Potential demand not completed because of stock, diagnostic only", "observation_status": "Observed sale or observed zero status", "stockout_censored": "Flag derived from unfulfilled_units > 0", "store_closed": "Flag for dates with zero potential demand across products", "source": "Synthetic provenance"}.items()}, "feature_columns": {name: "Historical feature available at cutoff t" for name in FEATURE_COLUMNS}, "target_next_7d": "Completed sales units on t+1 through t+7 inclusive; excludes t"})
     _json_write(out / "preprocessing_plan.json", {"numerical": [name for name in FEATURE_COLUMNS if name not in {"category", "unit_of_measure", "historical_demand_class"}], "categorical": ["category", "unit_of_measure", "historical_demand_class"], "identifier": ["product_id"], "missing_values": "Fail quality checks for required raw fields; fit training-only imputers only if Phase D.2 introduces missing engineered features.", "scaling": "StandardScaler for numerical variables where the selected model requires it.", "encoding": "OneHotEncoder(handle_unknown='ignore') for categorical variables.", "outliers": "Inspect training-period IQR; do not clip without a model-specific decision."})
     input_hashes = {name: _sha256(root / name) for name in ["products.csv", "daily_product_sales.csv", "daily_product_targets.csv", "sale_items.csv", "sales.csv", "inventory_movements.csv", "simulation_manifest.json"]}
-    metadata = {"dataset_version": APF3_VERSION, "source_manifest_batch_id": manifest["batch_id"], "source": "SYNTHETIC", "observation_unit": "one product per calendar day", "target": "completed sales units over t+1 through t+7", "calendar_timezone": CALENDAR_TIMEZONE, "input_sha256": input_hashes, "outputs": {path.name: _sha256(path) for path in sorted(out.iterdir()) if path.is_file() and path.name != "dataset_metadata.json"}}
+    metadata = {"dataset_version": APF3_VERSION, "source_manifest_batch_id": manifest["batch_id"], "source": "SYNTHETIC", "observation_unit": "one product per calendar day", "target": "completed sales units over t+1 through t+7", "calendar_timezone": CALENDAR_TIMEZONE, "input_sha256": input_hashes, "outputs": {name: _sha256(out / name) for name in D1_OUTPUT_FILES}}
     _json_write(out / "dataset_metadata.json", metadata)
     return {"output": str(out), "original_product_day_observations": len(raw_rows), "complete_labeled_observations": len(feature_rows), "usable_ml_samples": len(ml_rows), "feature_columns": FEATURE_COLUMNS, "split": split, "metadata": metadata}
 

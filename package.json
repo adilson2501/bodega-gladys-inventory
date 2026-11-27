@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:verify:production": "node scripts/production-db.mjs",
     "db:verify:staging": "node scripts/verify-staging-db.mjs",
     "db:reset:staging": "node scripts/reset-staging-commercial-data.mjs",
     "db:migrate:staging": "node scripts/migrate-staging-db.mjs",
@@ -21,10 +22,12 @@
     "db:test:staging": "node scripts/test-staging-integration.mjs",
     "test:integration:resolution": "node scripts/check-integration-import.mjs",
     "ml:test": "pytest ml/tests",
+    "ml:test:service": "pytest python/tests",
     "ml:simulate": "python3 -m ml.simulate_commercial --output ml/data/simulation-v1",
     "ml:validate:simulation": "python3 -m ml.validate_simulation --output ml/data/simulation-v1",
-    "db:import:simulation:staging": "node scripts/import-simulation-staging.mjs --output ml/data/simulation-v1",
-    "db:reconcile:simulation:staging": "node scripts/import-simulation-staging.mjs --output ml/data/simulation-v1 --reconcile",
+    "db:import:simulation:staging": "node scripts/import-simulation-staging.mjs --target staging --output ml/data/simulation-v1",
+    "db:reconcile:simulation:staging": "node scripts/import-simulation-staging.mjs --target staging --output ml/data/simulation-v1 --reconcile",
+    "db:import:simulation:production": "DOTENV_CONFIG_PATH=.env.local node --import dotenv/config scripts/import-simulation-staging.mjs --target production --output ml/data/simulation-v1",
     "test:simulation-importer": "node --test scripts/import-simulation-staging.test.mjs"
   },
   "dependencies": {

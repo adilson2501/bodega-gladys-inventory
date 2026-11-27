@@ -13,18 +13,21 @@ All data and outputs are `SYNTHETIC`.
 The audit verifies:
 
 - `model.joblib` SHA-256 equals `model_metadata.json`:
-  `df16e8be432bc58b826f6cf87c83a69998931de735d7d77eca89a3279cfb9d95`.
-- Model family is Ridge Regression.
-- Hyperparameter is `alpha=10.0`.
+  `a1c08e168ec3f1a5a4ebd9fecc742fd8dd7ac5c54303449702711a4fd6834240`.
+ - Model family is Ridge Regression with the selected APF3 experiment
+   `fit_intercept=false`.
+ - Hyperparameter is `alpha=10.0`.
 - Forecast horizon is seven days.
 - Test period is 2026-10-16 through 2026-10-24.
-- Frozen Ridge test MAE is `1.2984537784882764`.
+ - Selected model test MAE is `1.235859420288656` and WAPE is
+   `0.5501764937806053`.
 - The pipeline contains the exported preprocessing transformer and Ridge
   estimator.
 - Phase D.1 hashes, provenance, counts, and split metadata remain valid.
 
-The model metadata SHA-256 is
-`a65a8b83c04458829339371fa8058b63be034714163a7f47b9b6a8822ab6a745`.
+The model metadata is version `apf3-models-1.1`; its generated model hash is
+recorded in `ml/artifacts/apf3/model_metadata.json` and verified before every
+inference call.
 
 ## Future demonstration
 
@@ -86,9 +89,12 @@ Existing source fields are mapped as follows:
   cutoff inventory.
 - `products.minimum_stock` -> informational replenishment calculation.
 
-The current Next.js application does not execute Ridge inference. The model,
-feature construction, and replenishment calculation remain offline scripts.
-No production inference API is claimed or implemented.
+The current Next.js application does not execute Ridge inference. The stable
+offline Python interface is `infer_apf3.predict(record)` for one record and
+`infer_apf3.predict_many(records)` for a bounded batch. Both enforce the
+feature schema, synthetic provenance, model hash, seven-day horizon, finite
+numeric inputs, and nonnegative forecasts. No production inference API is
+claimed or implemented.
 
 ## Reproduction
 
@@ -113,7 +119,9 @@ guaranteed future sale.
 
 ## Limitations
 
-The model was trained on a 92-day synthetic simulation. The forecast cannot
+The model was trained and evaluated only on a 92-day synthetic simulation.
+The selected pipeline includes `product_id` as a categorical feature, so
+generalization to unseen product IDs is not established. The forecast cannot
 establish real demand accuracy, financial savings, stockout reduction, or
 generalization to Bodega Gladys customers. The replenishment calculation is a
 transparent example, not an automated purchasing policy.

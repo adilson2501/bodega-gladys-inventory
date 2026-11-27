@@ -1,15 +1,15 @@
 /**
  * Fail-closed importer for the Phase B synthetic batch.
  *
- * This file never falls back to DATABASE_URL. A write requires explicit staging
- * identity, --import, and --confirm-staging-import. The default operational path
- * is --dry-run.
+ * A write requires an explicit target, verified database identity, --import,
+ * and target-specific authorization. The default operational path is --dry-run.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Pool } from "@neondatabase/serverless";
 
+import { verifyProductionDatabase } from "./production-db.mjs";
 import { loadStagingDatabase } from "./staging-db.mjs";
 
 export const EXPECTED_COUNTS = {
@@ -39,13 +39,13 @@ const TABLE_FILES = {
 };
 const CONFIGURED_TABLES = ["products", "suppliers", "sales", "sale_items", "purchases", "purchase_items", "inventory_movements"];
 const INSERT_COLUMNS = {
-  products: ["id", "name", "category", "barcode", "selling_price", "purchase_cost", "unit_of_measure", "is_active", "current_stock", "minimum_stock", "created_at", "updated_at"],
-  suppliers: ["id", "name", "phone", "contact", "is_active", "created_at"],
-  purchases: ["id", "supplier_id", "supplier_name", "subtotal", "total", "idempotency_key", "actor_id", "actor_email", "created_at"],
-  purchase_items: ["id", "purchase_id", "product_id", "product_name", "quantity", "unit_cost", "line_total"],
-  sales: ["id", "payment_method", "subtotal", "total", "idempotency_key", "actor_id", "actor_email", "created_at"],
-  sale_items: ["id", "sale_id", "product_id", "product_name", "quantity", "unit_price", "line_total"],
-  inventory_movements: ["id", "product_id", "type", "reason", "quantity", "previous_stock", "resulting_stock", "idempotency_key", "request_fingerprint", "actor_id", "actor_email", "sale_id", "purchase_id", "created_at"],
+  products: ["id", "origin", "source_batch_id", "name", "category", "barcode", "selling_price", "purchase_cost", "unit_of_measure", "is_active", "current_stock", "minimum_stock", "created_at", "updated_at"],
+  suppliers: ["id", "origin", "source_batch_id", "name", "phone", "contact", "is_active", "created_at"],
+  purchases: ["id", "origin", "source_batch_id", "supplier_id", "supplier_name", "subtotal", "total", "idempotency_key", "actor_id", "actor_email", "created_at"],
+  purchase_items: ["id", "origin", "purchase_id", "product_id", "product_name", "quantity", "unit_cost", "line_total"],
+  sales: ["id", "origin", "source_batch_id", "payment_method", "subtotal", "total", "idempotency_key", "actor_id", "actor_email", "created_at"],
+  sale_items: ["id", "origin", "sale_id", "product_id", "product_name", "quantity", "unit_price", "line_total"],
+  inventory_movements: ["id", "origin", "source_batch_id", "product_id", "type", "reason", "quantity", "previous_stock", "resulting_stock", "idempotency_key", "request_fingerprint", "actor_id", "actor_email", "sale_id", "purchase_id", "created_at"],
 };
 const PAYMENT_METHODS = new Set(["CASH", "YAPE", "PLIN", "OTHER"]);
 const UNITS = new Set(["UNIT", "KG", "LITER", "BOX", "PACK"]);
@@ -82,6 +82,24 @@ export function assertSafeRuntimeConfig({ env = process.env, databaseUrl } = {})
   if (actualHost === productionHost) fail("DATABASE_URL points to the known production endpoint.");
   if (actualHost !== stagingHost) fail("DATABASE_URL does not point to STAGING_NEON_ENDPOINT_HOST.");
   return { stagingHost, productionHost, actualHost };
+}
+
+export function assertProductionAuthorization({ env = process.env, args }) {
+  if (!args.has("--confirm-production-import")) fail("Production writes require --confirm-production-import.");
+  if (env.ALLOW_PRODUCTION_SYNTHETIC_IMPORT !== "1") fail("Production writes require ALLOW_PRODUCTION_SYNTHETIC_IMPORT=1.");
+}
+
+function loadProductionConfig() {
+  const databaseUrl = process.env.DATABASE_URL;
+  const expectedHost = normalizeHostname(process.env.PRODUCTION_NEON_ENDPOINT_HOST);
+  const endpointId = String(process.env.PRODUCTION_NEON_ENDPOINT_ID ?? "").trim();
+  const databaseName = String(process.env.PRODUCTION_NEON_DATABASE_NAME ?? "").trim();
+  if (!databaseUrl || !expectedHost || !endpointId) fail("Verified Production configuration is required.");
+  let actualHost;
+  try { actualHost = normalizeHostname(new URL(databaseUrl).hostname); } catch { fail("Production DATABASE_URL is not a valid URL."); }
+  if (actualHost !== expectedHost) fail("Production DATABASE_URL does not match PRODUCTION_NEON_ENDPOINT_HOST.");
+  if (!/[?&]sslmode=require(?:&|$)/i.test(databaseUrl) && process.env.REQUIRE_SSL !== "false") fail("Production DATABASE_URL must require SSL.");
+  return { databaseUrl, endpointId, databaseName, target: "production" };
 }
 
 function parseCsv(text) {
@@ -232,14 +250,26 @@ export function buildImportPlan(dataset) {
   const timestamp = `${manifest.simulation_start}T00:00:00.000Z`;
   return {
     batchKey,
-    products: tables.products.map((row) => ({ id: row.id, name: row.name, category: row.category, barcode: null, selling_price: row.selling_price, purchase_cost: row.purchase_cost, unit_of_measure: row.unit_of_measure, is_active: true, current_stock: 0, minimum_stock: Number(row.minimum_stock), created_at: timestamp, updated_at: timestamp })),
-    suppliers: tables.suppliers.map((row) => ({ id: row.id, name: row.name, phone: null, contact: null, is_active: true, created_at: timestamp })),
-    purchases: tables.purchases.map((row) => ({ ...row, idempotency_key: `${batchKey}:purchase:${row.id}`, actor_id: null, actor_email: null })),
-    purchase_items: tables.purchase_items,
-    sales: tables.sales.map((row) => ({ ...row, idempotency_key: `${batchKey}:sale:${row.id}`, actor_id: null, actor_email: null })),
-    sale_items: tables.sale_items,
-    inventory_movements: tables.inventory_movements.map((row) => ({ ...row, sale_id: row.sale_id || null, purchase_id: row.purchase_id || null, idempotency_key: `${batchKey}:movement:${row.id}`, request_fingerprint: createHash("sha256").update(JSON.stringify(row)).digest("hex"), actor_id: null, actor_email: null })),
+    products: tables.products.map((row) => ({ id: row.id, origin: "SYNTHETIC", source_batch_id: manifest.batch_id, name: row.name, category: row.category, barcode: null, selling_price: row.selling_price, purchase_cost: row.purchase_cost, unit_of_measure: row.unit_of_measure, is_active: true, current_stock: 0, minimum_stock: Number(row.minimum_stock), created_at: timestamp, updated_at: timestamp })),
+    suppliers: tables.suppliers.map((row) => ({ id: row.id, origin: "SYNTHETIC", source_batch_id: manifest.batch_id, name: row.name, phone: null, contact: null, is_active: true, created_at: timestamp })),
+    purchases: tables.purchases.map((row) => ({ ...row, origin: "SYNTHETIC", source_batch_id: manifest.batch_id, idempotency_key: `${batchKey}:purchase:${row.id}`, actor_id: null, actor_email: null })),
+    purchase_items: tables.purchase_items.map((row) => ({ ...row, origin: "SYNTHETIC" })),
+    sales: tables.sales.map((row) => ({ ...row, origin: "SYNTHETIC", source_batch_id: manifest.batch_id, idempotency_key: `${batchKey}:sale:${row.id}`, actor_id: null, actor_email: null })),
+    sale_items: tables.sale_items.map((row) => ({ ...row, origin: "SYNTHETIC" })),
+    inventory_movements: tables.inventory_movements.map((row) => ({ ...row, origin: "SYNTHETIC", source_batch_id: manifest.batch_id, sale_id: row.sale_id || null, purchase_id: row.purchase_id || null, idempotency_key: `${batchKey}:movement:${row.id}`, request_fingerprint: createHash("sha256").update(JSON.stringify(row)).digest("hex"), actor_id: null, actor_email: null })),
   };
+}
+
+function assertSyntheticImportPlan(dataset, plan) {
+  const batchId = dataset.manifest.batch_id;
+  for (const table of CONFIGURED_TABLES) {
+    for (const row of plan[table]) {
+      if (row.origin !== "SYNTHETIC") fail(`${table} contains a non-SYNTHETIC row.`);
+      if (["products", "suppliers", "purchases", "sales", "inventory_movements"].includes(table) && row.source_batch_id !== batchId) {
+        fail(`${table} contains an invalid source_batch_id.`);
+      }
+    }
+  }
 }
 
 export async function detectConflicts(client, plan) {
@@ -248,6 +278,10 @@ export async function detectConflicts(client, plan) {
     const cast = key === "id" ? "uuid[]" : "text[]";
     const result = await client.query(`select ${key} from public."${table}" where ${key} = any($1::${cast}) limit 20`, [rows.map((row) => String(row[key]))]);
     if (result.rows.length) conflicts.push({ table, rows: result.rows.map((row) => row[key]) });
+  }
+  for (const table of ["products", "suppliers", "sales", "purchases", "inventory_movements"]) {
+    const result = await client.query(`select id from public."${table}" where source_batch_id = $1 limit 20`, [plan.products[0]?.source_batch_id ?? plan[table][0]?.source_batch_id]);
+    if (result.rows.length) conflicts.push({ table, reason: "source_batch_id", rows: result.rows.map((row) => row.id) });
   }
   return conflicts;
 }
@@ -260,22 +294,68 @@ async function assertDatabaseIdentity(client, config, writeTransaction = false) 
   if (!writeTransaction && row.transaction_read_only !== "on") fail("Identity check was not read-only.");
   if (writeTransaction && row.transaction_read_only !== "off") fail("Import transaction is not writable as expected.");
   const actualIdentity = row.neon_endpoint_id || row.neon_timeline_id;
-  if (actualIdentity !== config.endpointId) fail("Neon identity does not match STAGING_NEON_ENDPOINT_ID.");
-  if (config.databaseName && row.database_name !== config.databaseName) fail("Database name does not match STAGING_NEON_DATABASE_NAME.");
+  if (actualIdentity !== config.endpointId) fail(`Neon identity does not match ${config.target === "production" ? "PRODUCTION" : "STAGING"}_NEON_ENDPOINT_ID.`);
+  if (config.databaseName && row.database_name !== config.databaseName) fail(`Database name does not match ${config.target === "production" ? "PRODUCTION" : "STAGING"}_NEON_DATABASE_NAME.`);
   return row;
+}
+
+async function assertSyntheticSchema(client) {
+  const result = await client.query(`
+    select table_name, column_name
+    from information_schema.columns
+    where table_schema = 'public'
+      and ((table_name in ('products', 'suppliers', 'sales', 'purchases', 'inventory_movements') and column_name in ('origin', 'source_batch_id'))
+        or (table_name in ('sale_items', 'purchase_items') and column_name = 'origin'))
+  `);
+  const expected = new Set([
+    "products:origin", "products:source_batch_id", "suppliers:origin", "suppliers:source_batch_id",
+    "sales:origin", "sales:source_batch_id", "purchases:origin", "purchases:source_batch_id",
+    "inventory_movements:origin", "inventory_movements:source_batch_id", "sale_items:origin", "purchase_items:origin",
+  ]);
+  const actual = new Set(result.rows.map((row) => `${row.table_name}:${row.column_name}`));
+  const missing = [...expected].filter((key) => !actual.has(key));
+  if (missing.length) fail(`Target database lacks provenance columns: ${missing.join(", ")}`);
 }
 
 async function loadSafeConfig() {
   assertSafeRuntimeConfig();
   const staging = loadStagingDatabase();
   const safe = assertSafeRuntimeConfig({ databaseUrl: staging.databaseUrl });
-  return { ...staging, ...safe, endpointId: process.env.STAGING_NEON_ENDPOINT_ID, databaseName: process.env.STAGING_NEON_DATABASE_NAME };
+  return { ...staging, ...safe, endpointId: process.env.STAGING_NEON_ENDPOINT_ID, databaseName: process.env.STAGING_NEON_DATABASE_NAME, target: "staging" };
+}
+
+async function loadTargetConfig(target) {
+  if (target === "staging") return loadSafeConfig();
+  if (target !== "production") fail("--target must be production or staging.");
+  const config = loadProductionConfig();
+  await verifyProductionDatabase();
+  return { ...config, authorized: true };
 }
 
 export async function runDryRun(dataset, { client = null } = {}) {
   const plan = buildImportPlan(dataset);
+  assertSyntheticImportPlan(dataset, plan);
   const conflicts = client ? await detectConflicts(client, plan) : [];
   return { mode: "dry-run", writes: 0, conflicts, operations: Object.fromEntries(CONFIGURED_TABLES.map((table) => [table, plan[table].length])), batch_id: dataset.manifest.batch_id };
+}
+
+async function captureExistingUnclassified(client) {
+  const snapshot = {};
+  for (const table of CONFIGURED_TABLES) {
+    const rows = await client.query(`select id from public."${table}" where origin = 'UNCLASSIFIED' order by id`);
+    snapshot[table] = rows.rows.map((row) => String(row.id));
+  }
+  const products = await client.query("select id, current_stock, updated_at from public.products where origin = 'UNCLASSIFIED' order by id");
+  snapshot.productState = products.rows.map((row) => ({ id: String(row.id), current_stock: Number(row.current_stock), updated_at: row.updated_at?.toISOString?.() ?? String(row.updated_at) }));
+  return snapshot;
+}
+
+async function assertExistingUnclassifiedUnchanged(client, before) {
+  const after = await captureExistingUnclassified(client);
+  for (const table of CONFIGURED_TABLES) {
+    if (JSON.stringify(after[table]) !== JSON.stringify(before[table])) fail(`Existing UNCLASSIFIED ${table} records changed.`);
+  }
+  if (JSON.stringify(after.productState) !== JSON.stringify(before.productState)) fail("Existing UNCLASSIFIED product stock or timestamps changed.");
 }
 
 async function insertRows(client, table, columns, rows) {
@@ -290,17 +370,27 @@ async function insertRows(client, table, columns, rows) {
 
 export async function importToStaging(dataset, { config, poolFactory = (url) => new Pool({ connectionString: url, max: 1 }) } = {}) {
   if (!config) fail("A verified staging configuration is required.");
+  if (config.target === "production" && config.authorized !== true) fail("Production import authorization is required before writing.");
   const pool = poolFactory(config.databaseUrl);
   const client = await pool.connect();
   try {
     await assertDatabaseIdentity(client, config, true);
+    await assertSyntheticSchema(client);
+    await client.query("select set_config('app.operation_origin', 'SYNTHETIC', true)");
     const plan = buildImportPlan(dataset);
+    assertSyntheticImportPlan(dataset, plan);
+    const existingUnclassified = await captureExistingUnclassified(client);
     const conflicts = await detectConflicts(client, plan);
     if (conflicts.length) fail(`Existing staging records conflict with this batch: ${JSON.stringify(conflicts)}`);
     for (const table of CONFIGURED_TABLES) await insertRows(client, table, INSERT_COLUMNS[table], plan[table]);
-    for (const product of dataset.tables.products) await client.query("update public.products set current_stock = $1, updated_at = $2 where id = $3", [Number(product.current_stock), `${dataset.manifest.simulation_end}T23:59:59.999Z`, product.id]);
+    for (const product of dataset.tables.products) {
+      const result = await client.query("update public.products set current_stock = $1, updated_at = $2 where id = $3 and origin = 'SYNTHETIC' and source_batch_id = $4", [Number(product.current_stock), `${dataset.manifest.simulation_end}T23:59:59.999Z`, product.id, dataset.manifest.batch_id]);
+      if (result.rowCount !== 1) fail(`Synthetic stock update was not isolated for product ${product.id}.`);
+    }
     const reconciliation = await reconcileDatabase(client, dataset);
     if (!reconciliation.valid) fail(`Post-insert reconciliation failed: ${JSON.stringify(reconciliation)}`);
+    await assertExistingUnclassifiedUnchanged(client, existingUnclassified);
+    reconciliation.existing_unclassified_preserved = true;
     await client.query("COMMIT");
     return { mode: "import", writes: Object.fromEntries(CONFIGURED_TABLES.map((table) => [table, plan[table].length])), batch_id: dataset.manifest.batch_id, reconciliation };
   } catch (error) {
@@ -311,6 +401,8 @@ export async function importToStaging(dataset, { config, poolFactory = (url) => 
     await pool.end();
   }
 }
+
+export const importToProduction = importToStaging;
 
 export async function reconcileDatabase(client, dataset) {
   const plan = buildImportPlan(dataset);
@@ -342,12 +434,12 @@ export async function reconcileDatabase(client, dataset) {
   const purchaseTotals = await client.query("select count(*)::int as count, coalesce(sum(total), 0)::numeric(12,2) as total, min(created_at) as first_created_at, max(created_at) as last_created_at from public.purchases where id = any($1::uuid[])", [plan.purchases.map((row) => row.id)]);
   report.monetary_totals = { sales: { expected: plan.sales.reduce((sum, row) => sum + parseMoney(row.total), 0), actual: parseDatabaseMoney(saleTotals.rows[0].total) }, purchases: { expected: plan.purchases.reduce((sum, row) => sum + parseMoney(row.total), 0), actual: parseDatabaseMoney(purchaseTotals.rows[0].total) } };
   if (report.monetary_totals.sales.expected !== report.monetary_totals.sales.actual || report.monetary_totals.purchases.expected !== report.monetary_totals.purchases.actual) report.valid = false;
-  const movementResult = await client.query("select id, product_id, type, reason, quantity, previous_stock, resulting_stock, sale_id, purchase_id, created_at, idempotency_key from public.inventory_movements where id = any($1::uuid[]) order by created_at, id", [plan.inventory_movements.map((row) => row.id)]);
+  const movementResult = await client.query("select id, origin, source_batch_id, product_id, type, reason, quantity, previous_stock, resulting_stock, sale_id, purchase_id, created_at, idempotency_key from public.inventory_movements where id = any($1::uuid[]) order by created_at, id", [plan.inventory_movements.map((row) => row.id)]);
   const expectedMovements = new Map(plan.inventory_movements.map((row) => [row.id, row]));
   if (movementResult.rows.length !== plan.inventory_movements.length) report.movement_sequence = false;
   for (const row of movementResult.rows) {
     const expected = expectedMovements.get(row.id);
-    if (!expected || row.product_id !== expected.product_id || row.type !== expected.type || row.reason !== expected.reason || Number(row.quantity) !== Number(expected.quantity) || Number(row.previous_stock) !== Number(expected.previous_stock) || Number(row.resulting_stock) !== Number(expected.resulting_stock) || row.idempotency_key !== expected.idempotency_key) report.movement_sequence = false;
+    if (!expected || row.origin !== expected.origin || row.source_batch_id !== expected.source_batch_id || row.product_id !== expected.product_id || row.type !== expected.type || row.reason !== expected.reason || Number(row.quantity) !== Number(expected.quantity) || Number(row.previous_stock) !== Number(expected.previous_stock) || Number(row.resulting_stock) !== Number(expected.resulting_stock) || row.idempotency_key !== expected.idempotency_key) report.movement_sequence = false;
     if (expected && !sameTimestamp(row.created_at, expected.created_at)) report.historical_timestamps = false;
   }
   if (!report.movement_sequence || !report.historical_timestamps) report.valid = false;
@@ -361,13 +453,19 @@ export async function reconcileDatabase(client, dataset) {
 
 async function main() {
   const args = new Set(process.argv.slice(2));
+  const targetIndex = process.argv.indexOf("--target");
+  const target = targetIndex >= 0 ? process.argv[targetIndex + 1] : null;
   const outputIndex = process.argv.indexOf("--output");
   const output = outputIndex >= 0 ? process.argv[outputIndex + 1] : "ml/data/simulation-v1";
-  if (args.has("--import") && !args.has("--confirm-staging-import")) fail("Write mode requires --confirm-staging-import.");
+  if (!target) fail("An explicit --target is required.");
+  if (target === "production" && args.has("--import")) assertProductionAuthorization({ args });
+  if (target === "staging" && args.has("--import") && !args.has("--confirm-staging-import")) fail("Write mode requires --confirm-staging-import.");
   if (!args.has("--dry-run") && !args.has("--import") && !args.has("--reconcile")) fail("Choose --dry-run, --import, or --reconcile.");
   const dataset = loadDataset(output);
-  const config = await loadSafeConfig();
-  if (args.has("--dry-run") && !args.has("--inspect-database")) console.log(JSON.stringify(await runDryRun(dataset), null, 2));
+  const config = await loadTargetConfig(target);
+  const plan = buildImportPlan(dataset);
+  assertSyntheticImportPlan(dataset, plan);
+  if (args.has("--dry-run") && target !== "production" && !args.has("--inspect-database")) console.log(JSON.stringify(await runDryRun(dataset), null, 2));
   else {
     const pool = new Pool({ connectionString: config.databaseUrl, max: 1 });
     const client = await pool.connect();
@@ -376,6 +474,7 @@ async function main() {
       await client.query("ROLLBACK");
       if (args.has("--dry-run")) {
         await client.query("BEGIN READ ONLY");
+        await assertSyntheticSchema(client);
         const report = await runDryRun(dataset, { client });
         await client.query("ROLLBACK");
         console.log(JSON.stringify(report, null, 2));

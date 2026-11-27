@@ -15,6 +15,11 @@ import {
   MovementRuleError,
   stockAdjustmentInputSchema,
 } from "@/lib/inventory/movement-rules";
+import {
+  assertNormalOperationOrigin,
+  deriveOperationOrigin,
+  setDatabaseOperationOrigin,
+} from "@/lib/provenance/origin";
 
 export type MovementActionState = {
   error?: string;
@@ -121,12 +126,14 @@ export async function createMovement(
       if (initialExisting) return initialExisting;
 
       const productRows = await tx
-        .select({ id: products.id, currentStock: products.currentStock })
+        .select({ id: products.id, currentStock: products.currentStock, origin: products.origin })
         .from(products)
         .where(eq(products.id, result.data.productId))
         .for("update");
       const product = productRows[0];
       if (!product) throw new MovementRuleError("No se encontró el producto seleccionado.");
+      const operationOrigin = assertNormalOperationOrigin(deriveOperationOrigin([product.origin]));
+      await tx.execute(setDatabaseOperationOrigin(operationOrigin));
 
       const lockedExisting = assertMatchingExistingMovement(
         await getExistingMovement(tx, result.data.idempotencyKey),
@@ -147,6 +154,8 @@ export async function createMovement(
       const inserted = await tx
         .insert(inventoryMovements)
         .values({
+          origin: operationOrigin,
+          sourceBatchId: null,
           productId: product.id,
           type: result.data.type,
           reason: result.data.reason,
@@ -232,12 +241,14 @@ export async function adjustStock(
       if (initialExisting) return initialExisting;
 
       const productRows = await tx
-        .select({ id: products.id, currentStock: products.currentStock })
+        .select({ id: products.id, currentStock: products.currentStock, origin: products.origin })
         .from(products)
         .where(eq(products.id, result.data.productId))
         .for("update");
       const product = productRows[0];
       if (!product) throw new MovementRuleError("No se encontró el producto seleccionado.");
+      const operationOrigin = assertNormalOperationOrigin(deriveOperationOrigin([product.origin]));
+      await tx.execute(setDatabaseOperationOrigin(operationOrigin));
 
       const lockedExisting = assertMatchingExistingMovement(
         await getExistingMovement(tx, result.data.idempotencyKey),
@@ -253,6 +264,8 @@ export async function adjustStock(
       const inserted = await tx
         .insert(inventoryMovements)
         .values({
+          origin: operationOrigin,
+          sourceBatchId: null,
           productId: product.id,
           type: adjustment.type,
           reason: "ADJUSTMENT",

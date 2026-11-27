@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from infer_apf3 import audit_export, build_future_record, predict, run_future_demo, validate_record
+from infer_apf3 import audit_export, build_future_records, load_project_model, predict, run_future_demo, validate_record
 from train_apf3 import (
     baseline_predictions,
     metrics,
@@ -65,12 +65,17 @@ def test_selection_is_frozen_before_test_and_hash_matches_export():
     assert selection["frozen_before_test"] is True
     assert metadata["joblib_sha256"]
     assert metadata["source"] == "SYNTHETIC"
+    assert selection["experiment"]["name"] == "ridge-no-intercept-v1"
+    assert selection["experiment"]["selection_data"] == "validation only"
+    assert metadata["model_version"] == "apf3-models-1.1"
 
 
 def test_future_demo_uses_only_cutoff_history_and_canonical_stock():
     audit = audit_export(ARTIFACTS)
-    first_record, first_product = build_future_record("ml/data/simulation-v1")
-    second_record, second_product = build_future_record("ml/data/simulation-v1")
+    first_records, first_products, _ = build_future_records("ml/data/simulation-v1", limit=1)
+    second_records, second_products, _ = build_future_records("ml/data/simulation-v1", limit=1)
+    first_record, first_product = first_records[0], first_products[0]
+    second_record, second_product = second_records[0], second_products[0]
     assert audit["hyperparameters"] == {"alpha": 10.0}
     assert first_record == second_record
     assert first_product == second_product
@@ -83,8 +88,17 @@ def test_future_demo_uses_only_cutoff_history_and_canonical_stock():
     repeat = predict(first_record, ARTIFACTS / "model.joblib", ARTIFACTS / "model_metadata.json")
     assert prediction == repeat
     demo = run_future_demo("ml/data/simulation-v1", ARTIFACTS, ARTIFACTS)
-    assert demo["prediction"]["forecast_start"] == "2026-11-01"
-    assert demo["prediction"]["forecast_end"] == "2026-11-07"
-    assert demo["replenishment"]["stock_at_cutoff"] == first_product["stock_at_cutoff"]
-    assert demo["replenishment"]["database_write_performed"] is False
+    assert demo["predictions"][0]["forecast_start"] == "2026-11-01"
+    assert demo["predictions"][0]["forecast_end"] == "2026-11-07"
+    assert demo["replenishment"][0]["stock_at_cutoff"] == first_product["stock_at_cutoff"]
+    assert demo["replenishment"][0]["database_write_performed"] is False
     assert prediction["forecast_next_7d_units"] >= 0
+
+
+def test_runtime_rejects_feature_schema_drift(tmp_path):
+    metadata = json.loads((ARTIFACTS / "model_metadata.json").read_text(encoding="utf-8"))
+    metadata["features"] = list(reversed(metadata["features"]))
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    with pytest.raises(ValueError, match="feature schema"):
+        load_project_model(ARTIFACTS / "model.joblib", metadata_path)
