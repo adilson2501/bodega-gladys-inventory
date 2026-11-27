@@ -14,13 +14,13 @@
       ]
     },
     "apf-service": {
-      "root": "python",
+      "root": ".",
       "framework": "fastapi",
-      "entrypoint": "app:app",
+      "entrypoint": "python.app:app",
       "functions": {
-        "**/*.py": {
+        "python/**/*.py": {
           "maxDuration": 30,
-          "excludeFiles": "{tests/**,__tests__/**,**/*.test.py,ml/data/**,ml/tests/**,ml/train*.py,ml/artifacts/**/*.png,ml/artifacts/**/*.csv,ml/artifacts/**/forecast-batch/**}"
+          "excludeFiles": "{python/tests/**,**/__tests__/**,**/*.test.py,ml/data/**,ml/tests/**,ml/train*.py,ml/artifacts/**/*.png,ml/artifacts/**/*.csv,ml/artifacts/**/forecast-batch/**}"
         }
       }
     }
