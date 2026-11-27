@@ -20,7 +20,7 @@
       "functions": {
         "python/**/*.py": {
           "maxDuration": 30,
-          "excludeFiles": "{python/tests/**,**/__tests__/**,**/*.test.py,ml/data/**,ml/tests/**,ml/train*.py,ml/artifacts/**/*.png,ml/artifacts/**/*.csv,ml/artifacts/**/forecast-batch/**}"
+          "excludeFiles": "{python/tests/**,ml/{data,tests}/**,ml/train*.py,ml/artifacts/**/*.{png,csv},ml/artifacts/**/forecast-batch/**,**/{.venv,.next,.vercel,__pycache__,.pytest_cache}/**,**/{__tests__,tests,test,testing}/**,**/pip*/**,**/*.{pyc,pyo,pyi,md}}"
         }
       }
     }
