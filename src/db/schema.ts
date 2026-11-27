@@ -10,6 +10,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -25,11 +26,14 @@ export const movementReason = pgEnum("movement_reason", [
 
 export const unitOfMeasure = pgEnum("unit_of_measure", ["UNIT", "KG", "LITER", "BOX", "PACK"]);
 export const paymentMethod = pgEnum("payment_method", ["CASH", "YAPE", "PLIN", "OTHER"]);
+export const recordOrigin = pgEnum("record_origin", ["REAL", "SYNTHETIC", "UNCLASSIFIED"]);
 
 export const products = pgTable(
   "products",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
+    sourceBatchId: text("source_batch_id"),
     name: text("name").notNull(),
     category: text("category"),
     barcode: text("barcode"),
@@ -56,6 +60,8 @@ export const inventoryMovements = pgTable(
   "inventory_movements",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
+    sourceBatchId: text("source_batch_id"),
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id),
@@ -108,6 +114,8 @@ export const sales = pgTable(
   "sales",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
+    sourceBatchId: text("source_batch_id"),
     paymentMethod: paymentMethod("payment_method").notNull(),
     subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
     total: numeric("total", { precision: 12, scale: 2 }).notNull(),
@@ -123,6 +131,7 @@ export const saleItems = pgTable(
   "sale_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
     saleId: uuid("sale_id").notNull().references(() => sales.id, { onDelete: "cascade" }),
     productId: uuid("product_id").notNull().references(() => products.id),
     productName: text("product_name").notNull(),
@@ -137,19 +146,23 @@ export const suppliers = pgTable(
   "suppliers",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
+    sourceBatchId: text("source_batch_id"),
     name: text("name").notNull(),
     phone: text("phone"),
     contact: text("contact"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("suppliers_name_uidx").on(table.name)],
+  (table) => [uniqueIndex("suppliers_name_origin_uidx").on(table.name, table.origin)],
 );
 
 export const purchases = pgTable(
   "purchases",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
+    sourceBatchId: text("source_batch_id"),
     supplierId: uuid("supplier_id").references(() => suppliers.id),
     supplierName: text("supplier_name"),
     subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
@@ -166,6 +179,7 @@ export const purchaseItems = pgTable(
   "purchase_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    origin: recordOrigin("origin").notNull().default("UNCLASSIFIED"),
     purchaseId: uuid("purchase_id").notNull().references(() => purchases.id, { onDelete: "cascade" }),
     productId: uuid("product_id").notNull().references(() => products.id),
     productName: text("product_name").notNull(),
@@ -174,4 +188,25 @@ export const purchaseItems = pgTable(
     lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
   },
   (table) => [index("purchase_items_purchase_id_idx").on(table.purchaseId), check("purchase_items_quantity_positive", sql`${table.quantity} > 0`)],
+);
+
+export const predictionAudits = pgTable(
+  "prediction_audits",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").notNull().references(() => products.id),
+    inputSnapshot: jsonb("input_snapshot").notNull(),
+    output: jsonb("output"),
+    modelVersion: text("model_version").notNull(),
+    modelHash: text("model_hash").notNull(),
+    predictedAt: timestamp("predicted_at", { withTimezone: true }).notNull().defaultNow(),
+    origin: recordOrigin("origin").notNull(),
+    status: text("status").notNull(),
+    errorDetails: text("error_details"),
+  },
+  (table) => [
+    index("prediction_audits_product_predicted_at_idx").on(table.productId, table.predictedAt),
+    check("prediction_audits_status_ck", sql`${table.status} IN ('SUCCESS', 'FAILURE')`),
+    check("prediction_audits_origin_synthetic_ck", sql`${table.origin} = 'SYNTHETIC'`),
+  ],
 );

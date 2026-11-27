@@ -56,6 +56,13 @@ ml/artifacts/*
 !ml/artifacts/apf3/
 ml/artifacts/apf3/*
 !ml/artifacts/apf3/model_metadata.json
+!ml/artifacts/apf3/model.joblib
+!ml/artifacts/apf3/model_selection.json
+!ml/artifacts/apf3/tuning_results.json
+!ml/artifacts/apf3/evaluation_metrics.json
+!ml/artifacts/apf3/error_analysis.json
+!ml/artifacts/apf3/inference_example.json
+!ml/artifacts/apf3/temporal_split.json
 !ml/artifacts/apf3/future_inference_output.json
 !ml/artifacts/apf3/replenishment_recommendation.json
 !ml/artifacts/apf3/phase_e1_audit.json

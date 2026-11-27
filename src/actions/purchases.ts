@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { inventoryMovements, products, purchaseItems, purchases, suppliers } from "@/db/schema";
@@ -9,6 +9,11 @@ import { getAuth } from "@/lib/auth/server";
 import { getInventoryActor } from "@/lib/auth/actor";
 import { centsToMoney, parseMoneyToCents } from "@/lib/commercial/money";
 import { purchaseInputSchema } from "@/lib/validations/commercial";
+import {
+  assertNormalOperationOrigin,
+  deriveOperationOrigin,
+  setDatabaseOperationOrigin,
+} from "@/lib/provenance/origin";
 
 export type PurchaseActionState = { error?: string; success?: string; purchaseId?: string } | null;
 
@@ -37,13 +42,6 @@ export async function createPurchase(_previousState: PurchaseActionState, formDa
       const existing = await tx.select({ id: purchases.id }).from(purchases).where(eq(purchases.idempotencyKey, parsed.data.idempotencyKey));
       if (existing[0]) return { id: existing[0].id, duplicate: true };
 
-      const supplierRows = await tx.select().from(suppliers).where(eq(suppliers.name, parsed.data.supplierName));
-      let supplier = supplierRows[0];
-      if (!supplier) {
-        const insertedSupplier = await tx.insert(suppliers).values({ name: parsed.data.supplierName }).onConflictDoNothing({ target: suppliers.name }).returning();
-        supplier = insertedSupplier[0] ?? (await tx.select().from(suppliers).where(eq(suppliers.name, parsed.data.supplierName)))[0];
-      }
-
       const sortedItems = [...parsed.data.items].sort((a, b) => a.productId.localeCompare(b.productId));
       const lockedProducts = [];
       for (const item of sortedItems) {
@@ -51,8 +49,21 @@ export async function createPurchase(_previousState: PurchaseActionState, formDa
         if (!rows[0]) throw new Error("Uno de los productos no existe.");
         lockedProducts.push({ item, product: rows[0] });
       }
+      const operationOrigin = assertNormalOperationOrigin(
+        deriveOperationOrigin(lockedProducts.map(({ product }) => product.origin)),
+      );
+      await tx.execute(setDatabaseOperationOrigin(operationOrigin));
+
+      const supplierRows = await tx.select().from(suppliers).where(and(eq(suppliers.name, parsed.data.supplierName), eq(suppliers.origin, operationOrigin)));
+      let supplier = supplierRows[0];
+      if (!supplier) {
+        const insertedSupplier = await tx.insert(suppliers).values({ name: parsed.data.supplierName, origin: operationOrigin, sourceBatchId: null }).onConflictDoNothing({ target: [suppliers.name, suppliers.origin] }).returning();
+        supplier = insertedSupplier[0] ?? (await tx.select().from(suppliers).where(and(eq(suppliers.name, parsed.data.supplierName), eq(suppliers.origin, operationOrigin))))[0];
+      }
       const totalCents = parsed.data.items.reduce((total, item) => total + parseMoneyToCents(item.unitCost) * item.quantity, 0);
       const inserted = await tx.insert(purchases).values({
+        origin: operationOrigin,
+        sourceBatchId: null,
         supplierId: supplier?.id ?? null,
         supplierName: parsed.data.supplierName,
         subtotal: centsToMoney(totalCents),
@@ -70,8 +81,10 @@ export async function createPurchase(_previousState: PurchaseActionState, formDa
         const cost = centsToMoney(parseMoneyToCents(item.unitCost));
         const lineTotal = centsToMoney(parseMoneyToCents(item.unitCost) * item.quantity);
         const resultingStock = product.currentStock + item.quantity;
-        await tx.insert(purchaseItems).values({ purchaseId: inserted[0].id, productId: product.id, productName: product.name, quantity: item.quantity, unitCost: cost, lineTotal });
+        await tx.insert(purchaseItems).values({ origin: operationOrigin, purchaseId: inserted[0].id, productId: product.id, productName: product.name, quantity: item.quantity, unitCost: cost, lineTotal });
         await tx.insert(inventoryMovements).values({
+          origin: operationOrigin,
+          sourceBatchId: null,
           productId: product.id,
           type: "IN",
           reason: "PURCHASE",

@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  outputFileTracingIncludes: {
+    "/api/predictions": ["./ml/artifacts/apf3/model.joblib"],
+  },
   turbopack: {
     rules: {
       "*.css": {

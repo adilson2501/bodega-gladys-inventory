@@ -1,0 +1,21 @@
+{
+  "experiment": {
+    "base_model": "ridge",
+    "change": "fit_intercept=False",
+    "name": "ridge-no-intercept-v1",
+    "parameters": {
+      "alpha": 10.0
+    },
+    "selection_data": "validation only"
+  },
+  "frozen_before_test": true,
+  "selected_hyperparameters": {
+    "alpha": 10.0
+  },
+  "selected_ml_beats_strongest_baseline": true,
+  "selected_model": "ridge_no_intercept",
+  "selected_validation_mae": 1.233880843408955,
+  "selection_criterion": "validation MAE among Ridge, Random Forest, and one pre-registered Ridge experiment",
+  "strongest_baseline": "moving_average_14d",
+  "strongest_baseline_validation_mae": 1.2768518541111111
+}

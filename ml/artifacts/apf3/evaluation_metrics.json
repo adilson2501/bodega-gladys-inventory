@@ -1,0 +1,157 @@
+{
+  "models": {
+    "moving_average_14d": {
+      "test": {
+        "count": 540,
+        "mae": 1.3120370375925927,
+        "mean_signed_error": -0.1009259274814815,
+        "r2": 0.44066915711242327,
+        "rmse": 1.8645076791604127,
+        "wape": 0.58408903569662
+      },
+      "train": {
+        "count": 2220,
+        "mae": 1.2448198216531532,
+        "mean_signed_error": -0.01689189477027028,
+        "r2": 0.3787703496411817,
+        "rmse": 1.8028693357776617,
+        "wape": 0.6045723045438636
+      },
+      "validation": {
+        "count": 540,
+        "mae": 1.2768518541111111,
+        "mean_signed_error": -0.008333334777777798,
+        "r2": 0.3799114280071608,
+        "rmse": 1.745496853620768,
+        "wape": 0.6128888899733334
+      }
+    },
+    "naive_7d": {
+      "test": {
+        "count": 540,
+        "mae": 1.387037041148148,
+        "mean_signed_error": -0.03888888688888897,
+        "r2": 0.298918376897666,
+        "rmse": 2.0874403980579768,
+        "wape": 0.6174773307666941
+      },
+      "train": {
+        "count": 2220,
+        "mae": 1.4207207243648647,
+        "mean_signed_error": -0.006306305644144205,
+        "r2": 0.1597267937567891,
+        "rmse": 2.096758546470766,
+        "wape": 0.6900021894749507
+      },
+      "validation": {
+        "count": 540,
+        "mae": 1.3981481518333334,
+        "mean_signed_error": -0.04629629620370379,
+        "r2": 0.17346650244794093,
+        "rmse": 2.0152198677857753,
+        "wape": 0.67111111288
+      }
+    },
+    "random_forest": {
+      "test": {
+        "count": 540,
+        "mae": 1.3312877636695775,
+        "mean_signed_error": -0.10194998796933517,
+        "r2": 0.46437306709798887,
+        "rmse": 1.8245719568778136,
+        "wape": 0.5926590209246264
+      },
+      "train": {
+        "count": 2220,
+        "mae": 0.9098350784503868,
+        "mean_signed_error": -0.0034093320419521568,
+        "r2": 0.719736659697765,
+        "rmse": 1.210936336066643,
+        "wape": 0.4418800862305532
+      },
+      "validation": {
+        "count": 540,
+        "mae": 1.2381225011883406,
+        "mean_signed_error": 0.03029467013806502,
+        "r2": 0.4180697117549951,
+        "rmse": 1.6909380134542347,
+        "wape": 0.5942988005704034
+      }
+    },
+    "ridge": {
+      "test": {
+        "count": 540,
+        "mae": 1.2984537784882764,
+        "mean_signed_error": 0.08603508497132742,
+        "r2": 0.5176610527512653,
+        "rmse": 1.7314340656650267,
+        "wape": 0.5780420778101149
+      },
+      "train": {
+        "count": 2220,
+        "mae": 1.0405430298640892,
+        "mean_signed_error": 2.755978744331638e-05,
+        "r2": 0.6094940053038205,
+        "rmse": 1.429394203984453,
+        "wape": 0.5053610864796058
+      },
+      "validation": {
+        "count": 540,
+        "mae": 1.2375092521342652,
+        "mean_signed_error": 0.20739127608854582,
+        "r2": 0.4692570844769254,
+        "rmse": 1.614857888834986,
+        "wape": 0.5940044410244473
+      }
+    },
+    "ridge_no_intercept": {
+      "test": {
+        "count": 540,
+        "mae": 1.235859420288656,
+        "mean_signed_error": -0.07513138908385177,
+        "r2": 0.5382388944138876,
+        "rmse": 1.6940977551546184,
+        "wape": 0.5501764937806053
+      },
+      "train": {
+        "count": 2220,
+        "mae": 1.0391053081183526,
+        "mean_signed_error": -0.011160706710663111,
+        "r2": 0.609033119698668,
+        "rmse": 1.430237459858505,
+        "wape": 0.5046628273950433
+      },
+      "validation": {
+        "count": 540,
+        "mae": 1.233880843408955,
+        "mean_signed_error": 0.1910264257703097,
+        "r2": 0.47056859902284565,
+        "rmse": 1.6128614235452576,
+        "wape": 0.5922628048362985
+      }
+    }
+  },
+  "selected_model": "ridge_no_intercept",
+  "selection": {
+    "experiment": {
+      "base_model": "ridge",
+      "change": "fit_intercept=False",
+      "name": "ridge-no-intercept-v1",
+      "parameters": {
+        "alpha": 10.0
+      },
+      "selection_data": "validation only"
+    },
+    "frozen_before_test": true,
+    "selected_hyperparameters": {
+      "alpha": 10.0
+    },
+    "selected_ml_beats_strongest_baseline": true,
+    "selected_model": "ridge_no_intercept",
+    "selected_validation_mae": 1.233880843408955,
+    "selection_criterion": "validation MAE among Ridge, Random Forest, and one pre-registered Ridge experiment",
+    "strongest_baseline": "moving_average_14d",
+    "strongest_baseline_validation_mae": 1.2768518541111111
+  },
+  "source": "SYNTHETIC"
+}

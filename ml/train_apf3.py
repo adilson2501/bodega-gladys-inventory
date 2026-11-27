@@ -26,21 +26,19 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+try:
+    from .apf3_contract import CATEGORICAL_FEATURES, FEATURES, NUMERIC_FEATURES
+except ImportError:
+    from apf3_contract import CATEGORICAL_FEATURES, FEATURES, NUMERIC_FEATURES
 
 SEED = 42
 HORIZON = 7
-MODEL_VERSION = "apf3-models-1.0"
+MODEL_VERSION = "apf3-models-1.1"
 TRAIN_START, TRAIN_END = date(2026, 8, 15), date(2026, 9, 20)
 VALIDATION_START, VALIDATION_END = date(2026, 10, 1), date(2026, 10, 9)
 TEST_START, TEST_END = date(2026, 10, 16), date(2026, 10, 24)
-NUMERIC_FEATURES = [
-    "lag_1", "lag_2", "lag_7", "rolling_mean_7", "rolling_mean_14",
-    "rolling_std_7", "sales_frequency_7", "sales_frequency_14",
-    "day_of_week", "month", "stock_available_eod",
-]
-CATEGORICAL_FEATURES = ["product_id", "category", "unit_of_measure", "historical_demand_class"]
-FEATURES = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 REQUIRED_ROW_FIELDS = {"date", "product_id", "target_next_7d", "source", "split", *FEATURES}
+EXPERIMENT_VERSION = "ridge-no-intercept-v1"
 
 
 def _read_csv(path):
@@ -156,6 +154,8 @@ def make_model(model_name, params=None):
     params = params or {}
     if model_name == "ridge":
         return _pipeline(Ridge(random_state=SEED, **params), scale_numeric=True)
+    if model_name == "ridge_no_intercept":
+        return _pipeline(Ridge(random_state=SEED, fit_intercept=False, **params), scale_numeric=True)
     if model_name == "random_forest":
         return _pipeline(RandomForestRegressor(random_state=SEED, n_jobs=1, **params), scale_numeric=False)
     raise ValueError(f"Unknown model: {model_name}")
@@ -308,22 +308,51 @@ def train_apf3(artifact_dir="ml/artifacts/apf3", output_dir="ml/artifacts/apf3")
         model, scores = _fit_and_score(name, selected_params[name], train, validation)
         fitted[name] = model
         prediction_records[name] = {"validation_metrics": scores["validation"], "train_metrics": scores["train"], "validation": {"actual": _target(validation).tolist(), "predicted": np.maximum(0, model.predict(_matrix(validation))).tolist()}}
+    experiment_params = selected_params["ridge"]
+    experiment_model, experiment_scores = _fit_and_score("ridge_no_intercept", experiment_params, train, validation)
+    fitted["ridge_no_intercept"] = experiment_model
+    prediction_records["ridge_no_intercept"] = {
+        "validation_metrics": experiment_scores["validation"],
+        "train_metrics": experiment_scores["train"],
+        "validation": {
+            "actual": _target(validation).tolist(),
+            "predicted": np.maximum(0, experiment_model.predict(_matrix(validation))).tolist(),
+        },
+        "experiment": {
+            "name": EXPERIMENT_VERSION,
+            "base_model": "ridge",
+            "parameters": experiment_params,
+            "change": "fit_intercept=False",
+            "selection_data": "validation only",
+        },
+    }
     for name in ("naive_7d", "moving_average_14d"):
         validation_pred = baseline_predictions(validation, name)
         train_pred = baseline_predictions(train, name)
         prediction_records[name] = {"validation_metrics": metrics(_target(validation), validation_pred), "train_metrics": metrics(_target(train), train_pred), "validation": {"actual": _target(validation).tolist(), "predicted": validation_pred.tolist()}}
-    ml_selection = min((name for name in ("ridge", "random_forest")), key=lambda name: (prediction_records[name]["validation_metrics"]["mae"], name))
+    ml_selection = min((name for name in ("ridge", "random_forest", "ridge_no_intercept")), key=lambda name: (prediction_records[name]["validation_metrics"]["mae"], name))
     strongest_baseline = min(("naive_7d", "moving_average_14d"), key=lambda name: prediction_records[name]["validation_metrics"]["mae"])
-    selection = {"selected_model": ml_selection, "selected_hyperparameters": selected_params[ml_selection], "selection_criterion": "validation MAE among Ridge and Random Forest only", "selected_validation_mae": prediction_records[ml_selection]["validation_metrics"]["mae"], "strongest_baseline": strongest_baseline, "strongest_baseline_validation_mae": prediction_records[strongest_baseline]["validation_metrics"]["mae"], "selected_ml_beats_strongest_baseline": prediction_records[ml_selection]["validation_metrics"]["mae"] < prediction_records[strongest_baseline]["validation_metrics"]["mae"], "frozen_before_test": True}
+    selection = {"selected_model": ml_selection, "selected_hyperparameters": experiment_params if ml_selection == "ridge_no_intercept" else selected_params[ml_selection], "selection_criterion": "validation MAE among Ridge, Random Forest, and one pre-registered Ridge experiment", "selected_validation_mae": prediction_records[ml_selection]["validation_metrics"]["mae"], "strongest_baseline": strongest_baseline, "strongest_baseline_validation_mae": prediction_records[strongest_baseline]["validation_metrics"]["mae"], "selected_ml_beats_strongest_baseline": prediction_records[ml_selection]["validation_metrics"]["mae"] < prediction_records[strongest_baseline]["validation_metrics"]["mae"], "experiment": prediction_records["ridge_no_intercept"]["experiment"], "frozen_before_test": True}
     _write_json(Path(output_dir) / "model_selection.json", selection)
     _write_json(Path(output_dir) / "tuning_results.json", tuning)
 
+    # Freeze selection before touching test, then fit the exported model on
+    # train plus validation so its test score describes the shipped artifact.
+    combined = train + validation
+    export_model = make_model(ml_selection, selection["selected_hyperparameters"])
+    export_model.fit(_matrix(combined), _target(combined))
+    model_path = output / "model.joblib"
+    joblib.dump(export_model, model_path)
+
     # Test predictions are intentionally computed only after validation-only
-    # model selection has been persisted.
-    for name in ("ridge", "random_forest"):
+    # model selection has been persisted. The selected score uses export_model.
+    for name in ("ridge", "random_forest", "ridge_no_intercept"):
         test_pred = np.maximum(0, fitted[name].predict(_matrix(test)))
         prediction_records[name]["test_metrics"] = metrics(_target(test), test_pred)
         prediction_records[name]["test"] = {"actual": _target(test).tolist(), "predicted": test_pred.tolist()}
+    selected_test_pred = np.maximum(0, export_model.predict(_matrix(test)))
+    prediction_records[ml_selection]["test_metrics"] = metrics(_target(test), selected_test_pred)
+    prediction_records[ml_selection]["test"] = {"actual": _target(test).tolist(), "predicted": selected_test_pred.tolist()}
     for name in ("naive_7d", "moving_average_14d"):
         test_pred = baseline_predictions(test, name)
         prediction_records[name]["test_metrics"] = metrics(_target(test), test_pred)
@@ -339,13 +368,8 @@ def train_apf3(artifact_dir="ml/artifacts/apf3", output_dir="ml/artifacts/apf3")
         actual = float(selected_test["actual"][index]); predicted = float(selected_test["predicted"][index])
         errors.append({"product_id": row["product_id"], "cutoff_date": row["date"].isoformat(), "actual": actual, "predicted": predicted, "absolute_error": abs(actual - predicted), "plausible_explanation": "A short synthetic history and intermittent demand can make a seven-day aggregate change abruptly; this is descriptive, not causal evidence."})
 
-    combined = train + validation
-    export_model = make_model(ml_selection, selected_params[ml_selection])
-    export_model.fit(_matrix(combined), _target(combined))
-    model_path = output / "model.joblib"
-    joblib.dump(export_model, model_path)
     dataset_hash = hashlib.sha256(json.dumps({"input_sha256": d1_metadata["input_sha256"], "outputs": d1_metadata["outputs"]}, sort_keys=True).encode()).hexdigest()
-    model_metadata = {"model_version": MODEL_VERSION, "model_family": ml_selection, "dataset_hash": dataset_hash, "dataset_version": d1_metadata["dataset_version"], "source": "SYNTHETIC", "training_period": {"start": TRAIN_START.isoformat(), "end": VALIDATION_END.isoformat(), "fit_rows": len(combined), "note": "Export refit uses frozen train plus validation after test evaluation."}, "validation_period": {"start": VALIDATION_START.isoformat(), "end": VALIDATION_END.isoformat()}, "test_period": {"start": TEST_START.isoformat(), "end": TEST_END.isoformat()}, "random_seed": SEED, "features": FEATURES, "numeric_features": NUMERIC_FEATURES, "categorical_features": CATEGORICAL_FEATURES, "hyperparameters": selected_params[ml_selection], "forecast_horizon_days": HORIZON, "dependency_versions": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__, "scikit_learn": sklearn.__version__, "joblib": joblib.__version__}, "selection": selection, "metrics": {name: {key: value for key, value in result.items() if key.endswith("metrics")} for name, result in prediction_records.items()}, "feature_importance": importance, "charts": charts, "joblib_sha256": _sha256(model_path)}
+    model_metadata = {"model_version": MODEL_VERSION, "model_family": ml_selection, "dataset_hash": dataset_hash, "dataset_version": d1_metadata["dataset_version"], "source": "SYNTHETIC", "training_period": {"start": TRAIN_START.isoformat(), "end": VALIDATION_END.isoformat(), "fit_rows": len(combined), "note": "Export refit uses frozen train plus validation after test evaluation."}, "validation_period": {"start": VALIDATION_START.isoformat(), "end": VALIDATION_END.isoformat()}, "test_period": {"start": TEST_START.isoformat(), "end": TEST_END.isoformat()}, "random_seed": SEED, "features": FEATURES, "numeric_features": NUMERIC_FEATURES, "categorical_features": CATEGORICAL_FEATURES, "hyperparameters": selection["selected_hyperparameters"], "forecast_horizon_days": HORIZON, "dependency_versions": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__, "scikit_learn": sklearn.__version__, "joblib": joblib.__version__}, "selection": selection, "metrics": {name: {key: value for key, value in result.items() if key.endswith("metrics")} for name, result in prediction_records.items()}, "feature_importance": importance, "charts": charts, "joblib_sha256": _sha256(model_path)}
     _write_json(output / "model_metadata.json", model_metadata)
     example_row = combined[0]
     _write_json(output / "inference_example.json", {"date": example_row["date"].isoformat(), "source": "SYNTHETIC", **{name: example_row[name] for name in FEATURES}})

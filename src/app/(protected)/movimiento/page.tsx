@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { asc } from "drizzle-orm";
+import { asc, ne } from "drizzle-orm";
 
 import { MovementForm, type MovementProduct } from "@/components/movements/movement-form";
 import { db } from "@/db";
@@ -18,6 +18,7 @@ export default async function MovementPage({
   const productRows = await db
     .select({ id: products.id, name: products.name, barcode: products.barcode, currentStock: products.currentStock })
     .from(products)
+    .where(ne(products.origin, "SYNTHETIC"))
     .orderBy(asc(products.name));
 
   const productList: MovementProduct[] = productRows;

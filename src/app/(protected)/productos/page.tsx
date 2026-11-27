@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { asc } from "drizzle-orm";
+import { asc, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
@@ -33,6 +33,7 @@ export default async function ProductsPage({
       minimumStock: products.minimumStock,
     })
     .from(products)
+    .where(ne(products.origin, "SYNTHETIC"))
     .orderBy(asc(products.name));
 
   const productList: ProductListItem[] = productRows;

@@ -22,6 +22,20 @@
       "when": 1794420639607,
       "tag": "0002_mysterious_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795629773108,
+      "tag": "0003_great_kang",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795630000000,
+      "tag": "0004_apf3_prediction_audits",
+      "breakpoints": true
     }
   ]
 }

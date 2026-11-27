@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, ne } from "drizzle-orm";
 import { connection } from "next/server";
 
 import { StockAdjustmentForm, type AdjustmentProduct } from "@/components/adjustments/stock-adjustment-form";
@@ -18,6 +18,7 @@ export default async function StockAdjustmentPage({
   const productRows = await db
     .select({ id: products.id, name: products.name, currentStock: products.currentStock })
     .from(products)
+    .where(ne(products.origin, "SYNTHETIC"))
     .orderBy(asc(products.name));
 
   const productList: AdjustmentProduct[] = productRows;

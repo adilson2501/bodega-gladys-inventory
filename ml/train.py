@@ -19,18 +19,29 @@ def wape(actual, predicted):
     return float(sum(abs(a - p) for a, p in zip(actual, predicted)) / denominator) if denominator else None
 
 
-def feature_row(values, index):
+def feature_row(values, index, day_of_week=None):
     if index < 7:
         return None
     previous = values[:index]
-    return [previous[-1], previous[-2], previous[-7], sum(previous[-7:]) / 7, (index % 7)]
+    return [previous[-1], previous[-2], previous[-7], sum(previous[-7:]) / 7, index % 7 if day_of_week is None else day_of_week]
+
+
+def _daily_series(rows):
+    """Aggregate duplicate days and materialize observed calendar gaps as zero."""
+    totals = {}
+    for row in rows:
+        day = date.fromisoformat(row["date"][:10])
+        totals[day] = totals.get(day, 0) + int(row["quantity"])
+    if not totals:
+        return [], []
+    start, end = min(totals), max(totals)
+    dates = [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
+    return dates, [totals.get(day, 0) for day in dates]
 
 
 def fit_product(rows):
-    rows = sorted(rows, key=lambda row: row["date"])
-    values = [int(row["quantity"]) for row in rows]
-    dates = [row["date"] for row in rows]
-    usable = [(i, feature_row(values, i)) for i in range(len(values)) if feature_row(values, i) is not None]
+    dates, values = _daily_series(rows)
+    usable = [(i, feature_row(values, i, dates[i].weekday())) for i in range(len(values)) if feature_row(values, i) is not None]
     if len(usable) < 14:
         return {"status": "INSUFFICIENT_HISTORY", "forecast": [0] * 7, "metrics": None}
     split = max(1, int(len(usable) * 0.8))
@@ -49,9 +60,10 @@ def fit_product(rows):
         "evaluation_end": dates[test[-1][0]] if test else None,
     }
     history = values[:]
+    next_day = dates[-1] + timedelta(days=1)
     forecast = []
     for step in range(7):
-        features = feature_row(history, len(history))
+        features = feature_row(history, len(history), (next_day + timedelta(days=step)).weekday())
         prediction = max(0, float(model.predict([features])[0]))
         forecast.append(prediction)
         history.append(prediction)

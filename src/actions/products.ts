@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
@@ -63,6 +63,8 @@ export async function createProduct(
   try {
     await db.insert(products).values({
       name: result.data.name,
+      origin: "UNCLASSIFIED",
+      sourceBatchId: null,
       category: result.data.category,
       barcode: result.data.barcode,
       minimumStock: result.data.minimumStock,
@@ -122,7 +124,7 @@ export async function updateProduct(
         isActive: result.data.isActive,
         updatedAt: new Date(),
       })
-      .where(eq(products.id, productId.data))
+      .where(and(eq(products.id, productId.data), ne(products.origin, "SYNTHETIC")))
       .returning({ id: products.id });
 
     if (updatedProducts.length === 0) {

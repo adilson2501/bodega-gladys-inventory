@@ -11,7 +11,9 @@ TypeScript, Tailwind CSS, PostgreSQL on Neon and Drizzle ORM.
 npm install
 ```
 
-2. Copy `.env.example` to `.env.local` and configure the values locally.
+2. Copy `.env.example` to `.env.local` and configure `DATABASE_URL` with the
+   approved Neon Production endpoint. Set the matching
+   `PRODUCTION_NEON_ENDPOINT_HOST` and `PRODUCTION_NEON_ENDPOINT_ID` values.
 
 3. Run the development server:
 
@@ -38,8 +40,16 @@ Generate a versioned migration from the Drizzle schema:
 npm run db:generate
 ```
 
-After configuring `DATABASE_URL` for the approved Neon `main` branch, apply it
-with:
+After configuring `DATABASE_URL` for the approved Neon Production `main` branch,
+verify the connection without writing data:
+
+```bash
+npm run db:verify:production
+```
+
+The verification is read-only and fails closed when the URL hostname or Neon
+endpoint identity does not match the configured Production identity. Applying
+an existing migration remains an explicit, separately reviewed operation:
 
 ```bash
 npm run db:migrate
@@ -80,6 +90,17 @@ STAGING_NEON_ENDPOINT_HOST='ep-<staging-endpoint>.neon.tech' npm run db:test:sta
 
 The normal `npm test` command does not run this suite.
 
+### Synthetic simulation data
+
+The simulator and validator remain local-only and preserve `SYNTHETIC` provenance
+in their generated files. The database importer is intentionally staging-only;
+it must not be pointed at Production. The current Production schema has no
+persisted provenance until `drizzle/0003_great_kang.sql` is reviewed and applied.
+That migration adds `REAL`, `SYNTHETIC`, and `UNCLASSIFIED`, preserves historical
+rows as `UNCLASSIFIED`, and protects cross-origin references and stock changes.
+Synthetic imports into Production remain disabled until the migration and its
+preflight have been separately approved.
+
 ## Authentication limitation
 
 The application intentionally exposes no public registration UI. Neon Auth is
@@ -103,6 +124,28 @@ Consulta `ml/README.md` y `docs/APF3-ML.md` para supuestos, métricas, límites 
 La especificación vigente de catálogo y reglas de simulación de Fase A está en
 `docs/phase-a-simulation.md`. Su periodo es exclusivamente del 1 de agosto al 31
 de octubre de 2026; aún no contiene transacciones generadas.
+
+### Inferencia APF3 en runtime
+
+`/api/predictions` llama al servicio FastAPI privado de APF3. Requiere aplicar
+manualmente `drizzle/0004_apf3_prediction_audits.sql` y preparar Python:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r ml/requirements.txt -r python/requirements.txt
+export APF3_INTERNAL_SECRET='local-only-secret'
+uvicorn python.app:app --host 127.0.0.1 --port 8000
+
+# En otra terminal, con la misma variable APF3_INTERNAL_SECRET:
+npm run dev
+```
+
+Solo acepta productos `SYNTHETIC` y el corte `2026-10-31`. Cada intento guarda
+features, salida, hash SHA-256, versión, origen y estado. No se ejecutan
+migraciones automáticamente. En Vercel, el binding `APF3_SERVICE_URL` conecta
+Next.js con el servicio Python sin una ruta pública. `APF3_INTERNAL_SECRET`
+debe configurarse en ambos servicios y nunca en el navegador.
 
 La simulación comercial local de Fase B, sus comandos y validaciones están
 documentados en `docs/phase-b-simulation.md`.

@@ -68,10 +68,13 @@ Phase D.2 trains and evaluates the frozen APF3 dataset offline:
   --input ml/artifacts/apf3/inference_example.json
 ```
 
-The trainer uses purged chronological cross-validation, selects between Ridge
-and Random Forest on validation MAE, evaluates the untouched test set once,
-and exports only a project-generated offline joblib pipeline. It never writes
-to a database or modifies inventory.
+The trainer uses purged chronological cross-validation and compares Ridge,
+Random Forest, and one pre-registered Ridge experiment (`fit_intercept=False`)
+using validation only. The selected model is then refit on train plus
+validation and evaluated once on the untouched test set. It exports a hashed,
+versioned offline joblib pipeline and never writes to a database or modifies
+inventory. Runtime inference is available through `predict` and `predict_many`
+in `ml.infer_apf3`; both enforce the exported feature contract.
 
 ## APF3 future inference demonstration
 

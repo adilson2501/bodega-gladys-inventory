@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, and, eq, ne } from "drizzle-orm";
 import { connection } from "next/server";
 
 import { db } from "@/db";
@@ -12,7 +12,7 @@ export default async function SalesPage() {
   const productRows = await db
     .select({ id: products.id, name: products.name, barcode: products.barcode, sellingPrice: products.sellingPrice, currentStock: products.currentStock, unitOfMeasure: products.unitOfMeasure })
     .from(products)
-    .where(eq(products.isActive, true))
+    .where(and(eq(products.isActive, true), ne(products.origin, "SYNTHETIC")))
     .orderBy(asc(products.name));
   const saleProducts: SaleProduct[] = productRows;
   return <div><SalesForm products={saleProducts} /></div>;
